@@ -91,7 +91,7 @@ def lire_balance_agee(annee):
 def calculer_kpi(comptes):
     def sc(p): return sum(c["sc"] for n,c in comptes.items() if n.startswith(p))
     def sd(p): return sum(c["sd"] for n,c in comptes.items() if n.startswith(p))
-    ca = sc("70")
+    ca = sc("70") if sc("70") > 0 else sd("70")
     achats = max(sd("60")-sc("60"),0)
     charges_pers = max(sd("64")-sc("64"),0)
     services = sd("61"); autres = sd("62")
