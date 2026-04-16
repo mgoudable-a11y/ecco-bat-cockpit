@@ -210,12 +210,12 @@ tabs = st.tabs(["🏠 Cockpit","📈 CA & Clients","🔬 Analytique","🔔 Fourn
 with tabs[0]:
     st.markdown('<div class="sh">Jauges de santé</div>', unsafe_allow_html=True)
     c1,c2,c3,c4 = st.columns(4)
-    with c1: st.plotly_chart(jauge(kpi["taux_marge"],0,100,"Taux de marge"), use_container_width=True),config={"displayModeBar": False}
-    with c2: st.plotly_chart(jauge(kpi["taux_rent"],0,30,"Rentabilité nette"), use_container_width=True),config={"displayModeBar": False}
-    with c3: st.plotly_chart(jauge(min(kpi["couverture"],12),0,12,"Tréso (mois)",unite=" mois"), use_container_width=True),config={"displayModeBar": False}
+    with c1: st.plotly_chart(jauge(kpi["taux_marge"],0,100,"Taux de marge"), use_container_width=True)
+    with c2: st.plotly_chart(jauge(kpi["taux_rent"],0,30,"Rentabilité nette"), use_container_width=True)
+    with c3: st.plotly_chart(jauge(min(kpi["couverture"],12),0,12,"Tréso (mois)",unite=" mois"), use_container_width=True)
     with c4:
         col = C["vert"] if kpi["bfr_jours"]<60 else C["rouge"]
-        st.plotly_chart(jauge(kpi["bfr_jours"],0,90,"BFR en jours",unite="j",couleur=col), use_container_width=True),config={"displayModeBar": False}
+        st.plotly_chart(jauge(kpi["bfr_jours"],0,90,"BFR en jours",unite="j",couleur=col), use_container_width=True)
 
     st.markdown('<div class="sh">KPI essentiels</div>', unsafe_allow_html=True)
     cols = st.columns(6)
