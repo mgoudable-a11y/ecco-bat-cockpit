@@ -33,7 +33,7 @@ st.markdown("""
 C = {"bleu":"#378ADD","vert":"#1D9E75","orange":"#BA7517",
      "rouge":"#D85A30","gris":"#888780","violet":"#7F77DD"}
 
-DATA = Path(__file__).parent / "data"
+DATA = Path(__file__).parent
 
 # ─── Chargement automatique depuis data/ ──────────────────
 @st.cache_data
