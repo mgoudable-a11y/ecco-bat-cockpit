@@ -243,7 +243,7 @@ with tabs[0]:
         with col:
             pct = min(reel/cible*100 if cible>0 else 0,150)
             st.metric(lbl, fmt(reel), f"{pct:.0f}% objectif")
-            st.progress(min(pct/100,1.0))
+            st.progress(max(0.0, min(pct/100, 1.0)))
 
     if agee and agee.get("plus_61",0) > 0:
         st.markdown('<div class="sh">🚨 Impayés +61 jours</div>', unsafe_allow_html=True)
