@@ -5,43 +5,45 @@ import re
 from pathlib import Path
 
 st.set_page_config(page_title="ECCO BAT", page_icon="🏗️", layout="wide")
-
 ROOT = Path(__file__).parent
 DATA = ROOT / "data"
 
 EXERCICES = {
-    "2025": {"debut": "01/10/2024", "fin": "31/12/2025", "mois": 15},
-    "2024": {"debut": "01/10/2023", "fin": "30/09/2024", "mois": 12},
-    "2023": {"debut": "01/10/2022", "fin": "30/09/2023", "mois": 12},
+    "2025": {"debut":"01/10/2024","fin":"31/12/2025","mois":15},
+    "2024": {"debut":"01/10/2023","fin":"30/09/2024","mois":12},
+    "2023": {"debut":"01/10/2022","fin":"30/09/2023","mois":12},
 }
 C = {"bleu":"#378ADD","vert":"#1D9E75","orange":"#BA7517","rouge":"#D85A30","gris":"#888780","violet":"#7F77DD"}
-CFG = {"displayModeBar": False}
+CFG = {"displayModeBar":False}
 
 st.markdown("""
 <style>
 .main{background:#f4f6f9}
 .block-container{padding-top:1rem}
 .kpi-card{background:white;border-radius:12px;padding:18px 20px;
-    border:1px solid #e8ecf0;box-shadow:0 1px 4px rgba(0,0,0,0.05);margin-bottom:10px}
+    border:1px solid #e8ecf0;box-shadow:0 1px 4px rgba(0,0,0,0.05);margin-bottom:6px;
+    transition:box-shadow 0.2s}
+.kpi-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.12);cursor:pointer}
 .kpi-label{font-size:11px;font-weight:600;text-transform:uppercase;
     letter-spacing:.06em;color:#8896a5;margin-bottom:6px}
 .kpi-value{font-size:26px;font-weight:700;color:#1a2332;line-height:1.1}
 .kpi-delta{font-size:12px;margin-top:4px}
 .kpi-sub{font-size:11px;color:#adb5bd;margin-top:3px}
+.kpi-hint{font-size:10px;color:#c8d0da;margin-top:6px}
 .section-title{font-size:11px;font-weight:700;text-transform:uppercase;
     letter-spacing:.1em;color:#8896a5;margin:24px 0 12px;
     padding-bottom:8px;border-bottom:2px solid #e8ecf0}
-.alert-r{background:#fff5f5;border-left:4px solid #D85A30;border-radius:8px;
-    padding:12px 16px;margin-bottom:8px;font-size:13px;color:#c53030}
-.alert-a{background:#fffbeb;border-left:4px solid #BA7517;border-radius:8px;
-    padding:12px 16px;margin-bottom:8px;font-size:13px;color:#b7791f}
-.alert-g{background:#f0fff4;border-left:4px solid #1D9E75;border-radius:8px;
-    padding:12px 16px;margin-bottom:8px;font-size:13px;color:#276749}
+.alert-r{background:#fff5f5;border-left:4px solid #D85A30;border-radius:8px;padding:12px 16px;margin-bottom:8px;font-size:13px;color:#c53030}
+.alert-a{background:#fffbeb;border-left:4px solid #BA7517;border-radius:8px;padding:12px 16px;margin-bottom:8px;font-size:13px;color:#b7791f}
+.alert-g{background:#f0fff4;border-left:4px solid #1D9E75;border-radius:8px;padding:12px 16px;margin-bottom:8px;font-size:13px;color:#276749}
 .dp{color:#1D9E75;font-weight:600}
 .dn{color:#D85A30;font-weight:600}
+.panel{background:white;border-radius:12px;padding:24px;border:2px solid #378ADD;
+    box-shadow:0 8px 32px rgba(55,138,221,0.15);margin:12px 0 20px 0}
+.panel-title{font-size:16px;font-weight:600;color:#1a2332;margin-bottom:16px;
+    display:flex;align-items:center;gap:8px}
 .bfr-box{background:white;border-radius:12px;padding:20px;text-align:center;
     border:1px solid #e8ecf0;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
-.bfr-icon{font-size:32px;margin-bottom:8px}
 .bfr-val{font-size:22px;font-weight:700;color:#1a2332}
 .bfr-lbl{font-size:11px;color:#8896a5;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
 </style>
@@ -49,38 +51,38 @@ st.markdown("""
 
 def fmt(v, k=True):
     if k:
-        n = v/1000
-        s = f"{abs(n):,.1f}".replace(",","X").replace(".",",").replace("X"," ")
+        n=v/1000
+        s=f"{abs(n):,.1f}".replace(",","X").replace(".",",").replace("X"," ")
         return ("-" if n<0 else "")+s+" k€"
-    s = f"{abs(v):,.0f}".replace(",", " ")
+    s=f"{abs(v):,.0f}".replace(",", " ")
     return ("-" if v<0 else "")+s+" €"
 
 def fmt_pct(v):
-    s = f"{abs(v):.1f}".replace(".", ",")
-    return ("-" if v<0 else "")+s+"%"
+    return ("-" if v<0 else "")+f"{abs(v):.1f}".replace(".",",")+"%"
 
 def annualiser(v, annee):
-    m = EXERCICES.get(annee,{}).get("mois",12)
+    m=EXERCICES.get(annee,{}).get("mois",12)
     return v*12/m if m!=12 else v
 
 def delta_html(vn, vc, inv=False):
     if not vc or vc==0: return ""
-    p = (vn-vc)/abs(vc)*100
-    bon = p>0 if not inv else p<0
-    cls = "dp" if bon else "dn"
+    p=(vn-vc)/abs(vc)*100
+    bon=p>0 if not inv else p<0
+    cls="dp" if bon else "dn"
     return f'<span class="{cls}">{"▲" if p>0 else "▼"} {fmt_pct(abs(p))} vs N-1</span>'
 
-def kpi_card(label, value, delta="", sub="", couleur=None):
-    border = f"border-top:4px solid {couleur};" if couleur else ""
+def kpi_card_html(label, value, delta="", sub="", couleur=None):
+    border=f"border-top:4px solid {couleur};" if couleur else ""
     return (f'<div class="kpi-card" style="{border}">'
             f'<div class="kpi-label">{label}</div>'
             f'<div class="kpi-value">{value}</div>'
             +(f'<div class="kpi-delta">{delta}</div>' if delta else "")
             +(f'<div class="kpi-sub">{sub}</div>' if sub else "")
+            +'<div class="kpi-hint">🔍 Cliquer pour le détail</div>'
             +'</div>')
 
 def norm_client(nom):
-    nom_u = nom.upper()
+    nom_u=nom.upper()
     if "PLURALIS" in nom_u: return "PLURALIS"
     if "ADVIVO" in nom_u: return "ADVIVO"
     if "GRANDLYON" in nom_u or "GRAND LYON" in nom_u: return "GRANDLYON HABITAT"
@@ -92,71 +94,59 @@ def norm_client(nom):
     if "DYNACITE" in nom_u: return "DYNACITE"
     if "CLINIQUE" in nom_u: return "CLINIQUE TRENEL"
     if "CHAPONNAY" in nom_u: return "MAIRIE DE CHAPONNAY"
-    n = re.sub(r'\s+RG\s+\d+.*$','',nom).strip()
-    n = re.sub(r'\s+\d+[,.]?\d*%.*$','',n).strip()
-    return n
+    n=re.sub(r'\s+RG\s+\d+.*$','',nom).strip()
+    return re.sub(r'\s+\d+[,.]?\d*%.*$','',n).strip()
 
 def norm_fourn(nom):
-    nom_u = nom.upper()
+    nom_u=nom.upper()
     if "FIMA" in nom_u: return "FIMA MENUISERIE"
     if "MALERBA" in nom_u: return "MALERBA"
     if "FARE MANA" in nom_u or "FAREMANA" in nom_u: return "FARE MANA"
     if "FRANCE FERMETURES" in nom_u: return "FRANCE FERMETURES"
     if "PROLIANS" in nom_u: return "PROLIANS QM"
-    if "CIBOX" in nom_u: return "CIBOX"
     if "MONTGOLFIER" in nom_u: return "SCI MONTGOLFIER"
-    if "GROUPE SBTX" in nom_u or "SBTX" in nom_u: return "GROUPE SBTX"
+    if "SBTX" in nom_u: return "GROUPE SBTX"
     if "DEYA" in nom_u: return "DEYA"
     if "COULISS" in nom_u: return "COULISS"
     if "HORMANN" in nom_u: return "HORMANN"
-    n = re.sub(r'\s+lcr.*$','',nom,flags=re.IGNORECASE)
-    n = re.sub(r'\s+-\s+\d+.*$','',n)
-    return n.strip()[:30]
+    n=re.sub(r'\s+lcr.*$','',nom,flags=re.IGNORECASE)
+    return re.sub(r'\s+-\s+\d+.*$','',n).strip()[:30]
 
-def jauge_style(val, min_v, max_v, titre, unite="%", couleur=None, val_comp=None, seuils=None):
-    """Jauge moderne avec segmentation configurable"""
+def jauge(val, min_v, max_v, titre, unite="%", couleur=None, val_comp=None, seuils=None):
     if couleur is None:
-        p = (val-min_v)/max(max_v-min_v,1)
-        couleur = C["vert"] if p>0.6 else (C["orange"] if p>0.3 else C["rouge"])
-    if seuils is None:
-        seuils = [0.4, 0.7]  # seuils par défaut
-    s0, s1 = seuils
-    comp_txt = f"<br><span style='font-size:10px;color:#aaa'>N-1 : {val_comp:.1f}{unite}</span>" if val_comp is not None else ""
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=round(val,1),
-        number={"suffix":unite,"font":{"size":20}},
+        p=(val-min_v)/max(max_v-min_v,1)
+        couleur=C["vert"] if p>0.6 else (C["orange"] if p>0.3 else C["rouge"])
+    if seuils is None: seuils=[0.4,0.7]
+    s0,s1=seuils
+    comp_txt=f"<br><span style='font-size:10px;color:#aaa'>N-1 : {val_comp:.1f}{unite}</span>" if val_comp is not None else ""
+    fig=go.Figure(go.Indicator(
+        mode="gauge+number",value=round(val,1),
+        number={"suffix":unite,"font":{"size":22}},
         title={"text":titre+comp_txt,"font":{"size":11}},
-        gauge={
-            "axis":{"range":[min_v,max_v],"tickwidth":1,"tickcolor":"#ccc"},
-            "bar":{"color":couleur,"thickness":0.3},
-            "bgcolor":"white","borderwidth":0,
-            "steps":[
-                {"range":[min_v,min_v+(max_v-min_v)*s0],"color":"#FFEAEA"},
-                {"range":[min_v+(max_v-min_v)*s0,min_v+(max_v-min_v)*s1],"color":"#FFF3CD"},
-                {"range":[min_v+(max_v-min_v)*s1,max_v],"color":"#D4EDDA"},
-            ],
-            "threshold":{"line":{"color":couleur,"width":3},"thickness":0.75,"value":val}
-        }
+        gauge={"axis":{"range":[min_v,max_v],"tickwidth":1,"tickcolor":"#ddd"},
+               "bar":{"color":couleur,"thickness":0.3},"bgcolor":"white","borderwidth":0,
+               "steps":[{"range":[min_v,min_v+(max_v-min_v)*s0],"color":"#FFEAEA"},
+                        {"range":[min_v+(max_v-min_v)*s0,min_v+(max_v-min_v)*s1],"color":"#FFF3CD"},
+                        {"range":[min_v+(max_v-min_v)*s1,max_v],"color":"#D4EDDA"}],
+               "threshold":{"line":{"color":couleur,"width":3},"thickness":0.75,"value":val}}
     ))
     fig.update_layout(height=200,margin=dict(t=40,b=0,l=10,r=10),paper_bgcolor="rgba(0,0,0,0)")
     return fig
 
 def sante(kpi):
-    s = sum([kpi["taux_marge"]>45,kpi["taux_rent"]>5,
-             kpi["treso"]>0,kpi["bfr_jours"]<60,kpi["dso"]<45])*2
+    s=sum([kpi["taux_marge"]>45,kpi["taux_rent"]>5,
+           kpi["treso"]>0,kpi["bfr_jours"]<60,kpi["dso"]<45])*2
     if s>=8: return "😄","Excellente santé financière","#f0fff4","#38a169"
     if s>=6: return "😊","Bonne santé — points à surveiller","#f0fff4","#38a169"
     if s>=4: return "😐","Vigilance requise","#fffbeb","#d69e2e"
     return "😟","Points critiques à traiter","#fff5f5","#e53e3e"
 
-# ─── LECTURE DONNÉES ──────────────────────────────────────
 @st.cache_data
 def lire_balance(annee):
-    p = DATA/f"balance_generale_{annee}.xlsx"
+    p=DATA/f"balance_generale_{annee}.xlsx"
     if not p.exists(): return {},{}
-    df = pd.read_excel(p,header=None,dtype=str)
-    comptes,totaux = {},{}
+    df=pd.read_excel(p,header=None,dtype=str)
+    comptes,totaux={},{}
     for _,row in df.iterrows():
         vals=[str(v).strip() for v in row.values if pd.notna(v) and str(v).strip() not in ["","nan"]]
         if not vals: continue
@@ -179,10 +169,9 @@ def lire_balance(annee):
 
 @st.cache_data
 def lire_analytique(annee):
-    """Utilise UNIQUEMENT les lignes Total 1, Total 2, Total 3"""
-    p = DATA/f"balance_analytique_{annee}.xlsx"
+    p=DATA/f"balance_analytique_{annee}.xlsx"
     if not p.exists(): return {}
-    df = pd.read_excel(p,header=None,dtype=str)
+    df=pd.read_excel(p,header=None,dtype=str)
     result={}
     for _,row in df.iterrows():
         vals=[str(v).strip() for v in row.values if pd.notna(v) and str(v).strip() not in ["","nan"]]
@@ -203,9 +192,9 @@ def lire_analytique(annee):
 
 @st.cache_data
 def lire_balance_agee(annee):
-    p = DATA/f"balance_agee_clients_{annee}.xlsx"
+    p=DATA/f"balance_agee_clients_{annee}.xlsx"
     if not p.exists(): return {}
-    df = pd.read_excel(p,header=None,dtype=str)
+    df=pd.read_excel(p,header=None,dtype=str)
     clients=[]
     for _,row in df.iterrows():
         vals=[str(v).strip() for v in row.values if pd.notna(v) and str(v).strip() not in ["","nan"]]
@@ -232,10 +221,9 @@ def lire_balance_agee(annee):
 
 @st.cache_data
 def lire_clients(annee):
-    """CA clients depuis grand livre 411 - montants TTC, convertis en HT approximatif"""
-    p = DATA/f"grand_livre_clients_{annee}.xlsx"
+    p=DATA/f"grand_livre_clients_{annee}.xlsx"
     if not p.exists(): return {},{}
-    df = pd.read_excel(p,header=None,dtype=str)
+    df=pd.read_excel(p,header=None,dtype=str)
     clients_ttc,mensuel_ttc={},{}
     for _,row in df.iterrows():
         date_raw=str(row[0]).strip() if pd.notna(row[0]) else ""
@@ -254,21 +242,16 @@ def lire_clients(annee):
             mois_key=date_raw[:7]
             mensuel_ttc[mois_key]=mensuel_ttc.get(mois_key,0)+debit
         except: pass
-
-    # Convertir en HT avec coefficient moyen
     total_ttc=sum(clients_ttc.values())
     ca_ht=abs(lire_balance(annee)[1].get("70",{}).get("solde",total_ttc))
     coef=ca_ht/total_ttc if total_ttc>0 else 1.0
-
-    clients_ht={k:v*coef for k,v in clients_ttc.items()}
-    mensuel_ht={k:v*coef for k,v in mensuel_ttc.items()}
-    return clients_ht,mensuel_ht
+    return {k:v*coef for k,v in clients_ttc.items()},{k:v*coef for k,v in mensuel_ttc.items()}
 
 @st.cache_data
 def lire_fournisseurs(annee):
-    p = DATA/f"grand_livre_fournisseurs_{annee}.xlsx"
+    p=DATA/f"grand_livre_fournisseurs_{annee}.xlsx"
     if not p.exists(): return {}
-    df = pd.read_excel(p,header=None,dtype=str)
+    df=pd.read_excel(p,header=None,dtype=str)
     fourn={}
     for _,row in df.iterrows():
         date_raw=str(row[0]).strip() if pd.notna(row[0]) else ""
@@ -286,36 +269,26 @@ def lire_fournisseurs(annee):
     return fourn
 
 def calculer_kpi(comptes,totaux):
-    def get_solde(code): return totaux[code]["solde"] if code in totaux else 0
+    def gs(c): return totaux[c]["solde"] if c in totaux else 0
     def sc(p): return sum(c["sc"] for n,c in comptes.items() if n.startswith(p))
     def sd(p): return sum(c["sd"] for n,c in comptes.items() if n.startswith(p))
-    ca=abs(get_solde("70"))
-    achats=abs(get_solde("60"))
-    services=abs(get_solde("61"))
-    autres=abs(get_solde("62"))
-    impots=abs(get_solde("63"))
-    charges_pers=abs(get_solde("64"))
-    dotations=abs(get_solde("68"))
-    is_=abs(get_solde("69"))
-    charges_fin=abs(get_solde("66"))+abs(get_solde("67"))
+    ca=abs(gs("70")); achats=abs(gs("60")); services=abs(gs("61"))
+    autres=abs(gs("62")); impots=abs(gs("63")); charges_pers=abs(gs("64"))
+    dotations=abs(gs("68")); is_=abs(gs("69"))
+    charges_fin=abs(gs("66"))+abs(gs("67"))
     charges_tot=achats+services+autres+impots+charges_pers+dotations+is_+charges_fin
     res_t=totaux.get("12",{}).get("solde",0)
     resultat=abs(res_t) if abs(res_t)>1000 else max(ca-charges_tot,0)
     ebe=ca-achats-charges_pers-services-autres-impots
-    rex=ebe-dotations
-    marge=ca-achats
-    stocks=sd("31")+sd("32")+sd("33")
-    creances=sd("411")
-    dettes_f=sc("401")
-    treso=max(sum(c["sd"]-c["sc"] for n,c in comptes.items() if n.startswith("512") or n.startswith("531")),0)
+    rex=ebe-dotations; marge=ca-achats
+    stocks=sd("31")+sd("32")+sd("33"); creances=sd("411"); dettes_f=sc("401")
+    treso=max(sum(c["sd"]-c["sc"] for n,c in comptes.items()
+               if n.startswith("512") or n.startswith("531")),0)
     bfr=stocks+creances-dettes_f
-
-    # Détail comptes par poste pour drill-down
     detail={}
-    for pref in ["70","60","61","62","63","64","68","69","411","512"]:
+    for pref in ["70","60","61","62","63","64","68","69","411","512","401"]:
         detail[pref]={n:c for n,c in comptes.items()
                       if n.startswith(pref) and (c["debit"]+c["credit"])>0}
-
     return {"ca":ca,"marge":marge,"resultat":resultat,"ebe":ebe,"rex":rex,
             "charges_tot":charges_tot,"achats":achats,"services":services,
             "autres":autres,"impots":impots,"charges_pers":charges_pers,
@@ -331,35 +304,97 @@ def calculer_kpi(comptes,totaux):
             "couverture":treso/(charges_tot/12) if charges_tot>0 else 0,
             "detail":detail}
 
-def show_detail_panel(key, comptes_dict, titre, session_key):
-    """Panneau de détail dans un expander sous le KPI"""
-    with st.expander(f"📋 {titre}", expanded=st.session_state.get(session_key,False)):
-        rows=[]
-        for num,c in sorted(comptes_dict.items(),key=lambda x:-abs(x[1]["debit"]+x[1]["credit"])):
-            val=c["debit"] if c["debit"]>c["credit"] else c["credit"]
-            rows.append({"Compte":num,"Intitulé":c["intitule"][:40],
-                         "Montant":fmt(val,k=False)})
-        if rows: st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True,height=200)
+def panel_detail(titre, comptes_dict, annee, comptes_c_dict=None, couleur=C["bleu"]):
+    """Panneau pleine largeur avec tableau détaillé"""
+    mois=EXERCICES.get(annee,{}).get("mois",12)
+    st.markdown(f"""
+    <div class="panel">
+        <div class="panel-title">
+            <span style="background:{couleur};color:white;border-radius:6px;padding:4px 10px;font-size:12px">📋</span>
+            &nbsp;{titre}
+        </div>
+    </div>
+    """,unsafe_allow_html=True)
+    rows=[]
+    for num,c in sorted(comptes_dict.items(),
+                        key=lambda x:-max(x[1]["debit"],x[1]["credit"],x[1].get("sd",0),x[1].get("sc",0))):
+        val_n=max(c["debit"],c["credit"],c.get("sd",0),c.get("sc",0))
+        val_n_ann=annualiser(val_n,annee)
+        val_c,var="",""
+        if comptes_c_dict and num in comptes_c_dict:
+            cc=comptes_c_dict[num]
+            vc=max(cc["debit"],cc["credit"],cc.get("sd",0),cc.get("sc",0))
+            val_c=fmt(vc,k=False)
+            if vc>0:
+                p=(val_n_ann-vc)/vc*100
+                var=("🔴 +" if p>5 else "🟢 " if p<-5 else "⚪ ")+fmt_pct(p)
+        row={"Compte":num,"Intitulé":c["intitule"][:50],"Montant N":fmt(val_n,k=False)}
+        if mois!=12: row["Annualisé"]=fmt(val_n_ann,k=False)
+        if val_c: row["N-1"]=val_c; row["Variation"]=var
+        rows.append(row)
+    if rows:
+        df_d=pd.DataFrame(rows)
+        st.dataframe(df_d,use_container_width=True,hide_index=True,
+                    height=min(len(rows)*38+50,500))
+    if st.button("✕ Fermer le détail",key=f"close_{titre[:10]}"):
+        st.session_state["panel_ouvert"]=None
+        st.rerun()
 
-def top_variations_comptes(annee, annee_c, prefixe, top_n=10):
-    """Retourne les top N comptes ayant le plus varié entre 2 exercices"""
-    cp, _ = lire_balance(annee)
-    cp_c, _ = lire_balance(annee_c) if annee_c in EXERCICES else ({},)
-    mois = EXERCICES.get(annee,{}).get("mois",12)
+def panel_variations(titre, annee, annee_c, prefixe, couleur=C["bleu"]):
+    """Panneau pleine largeur avec top variations"""
+    cp,_=lire_balance(annee)
+    cp_c,_=lire_balance(annee_c) if annee_c in EXERCICES else ({},)
+    mois=EXERCICES.get(annee,{}).get("mois",12)
     tous=set(list(cp.keys())+list(cp_c.keys()))
     variations=[]
     for num in tous:
         if not num.startswith(prefixe): continue
-        vn=cp.get(num,{}).get("debit",0)*12/mois
-        vc=cp_c.get(num,{}).get("debit",0)
+        vn=max(cp.get(num,{}).get("debit",0),cp.get(num,{}).get("credit",0))*12/mois
+        vc=max(cp_c.get(num,{}).get("debit",0),cp_c.get(num,{}).get("credit",0))
         intitule=cp.get(num,cp_c.get(num,{})).get("intitule","")
-        if vc>1000:
-            pct=(vn-vc)/vc*100
-            variations.append({"compte":num,"intitule":intitule[:40],
-                                "N_ann":fmt(vn,k=False),"N1":fmt(vc,k=False),"var":f"{'+'if pct>0 else ''}{pct:.0f}%","pct":pct})
-    return sorted(variations,key=lambda x:-x["pct"])[:top_n], sorted(variations,key=lambda x:x["pct"])[:top_n]
+        if vc>500:
+            p=(vn-vc)/vc*100
+            variations.append({"num":num,"intitule":intitule,"vn":vn,"vc":vc,"p":p})
 
-# ─── SIDEBAR ─────────────────────────────────────────────
+    st.markdown(f"""
+    <div class="panel">
+        <div class="panel-title">
+            <span style="background:{couleur};color:white;border-radius:6px;padding:4px 10px;font-size:12px">📊</span>
+            &nbsp;{titre} — Top variations N vs N-1
+        </div>
+    </div>
+    """,unsafe_allow_html=True)
+
+    hausses=sorted(variations,key=lambda x:-x["p"])[:10]
+    baisses=sorted(variations,key=lambda x:x["p"])[:10]
+
+    c1,c2=st.columns(2)
+    with c1:
+        st.markdown("#### 📈 Hausses")
+        if hausses:
+            df_h=pd.DataFrame([{"Compte":v["num"],"Intitulé":v["intitule"][:45],
+                f"Ex.{annee} ann.":fmt(v["vn"],k=False),f"Ex.{annee_c}":fmt(v["vc"],k=False),
+                "Variation":f"+{fmt_pct(v['p'])}"} for v in hausses])
+            st.dataframe(df_h,use_container_width=True,hide_index=True,height=380)
+        else: st.info("Aucune hausse significative")
+    with c2:
+        st.markdown("#### 📉 Baisses")
+        if baisses:
+            df_b=pd.DataFrame([{"Compte":v["num"],"Intitulé":v["intitule"][:45],
+                f"Ex.{annee} ann.":fmt(v["vn"],k=False),f"Ex.{annee_c}":fmt(v["vc"],k=False),
+                "Variation":fmt_pct(v["p"])} for v in baisses])
+            st.dataframe(df_b,use_container_width=True,hide_index=True,height=380)
+        else: st.info("Aucune baisse significative")
+
+    if st.button("✕ Fermer",key=f"close_var_{prefixe}"):
+        st.session_state["panel_ouvert"]=None
+        st.rerun()
+
+# ── Session state pour le panneau ouvert ─────────────────
+if "panel_ouvert" not in st.session_state:
+    st.session_state["panel_ouvert"]=None
+
+# ── SIDEBAR ───────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🏗️ ECCO BAT")
     st.markdown("---")
@@ -381,15 +416,12 @@ with st.sidebar:
     obj_bfr   = st.number_input("BFR max (k€)",     value=400,  step=50)
     st.markdown("---")
     st.markdown("### ⚙️ Seuils jauges")
-    seuil_marge_bas = st.slider("Marge — seuil bas (%)",0,100,40)
-    seuil_marge_haut= st.slider("Marge — seuil haut (%)",0,100,60)
-    seuil_rent_bas  = st.slider("Rentabilité — seuil bas (%)",0,30,5)
-    seuil_rent_haut = st.slider("Rentabilité — seuil haut (%)",0,30,12)
-    seuil_ebe_bas   = st.slider("EBE — seuil bas (%)",0,40,10)
-    seuil_ebe_haut  = st.slider("EBE — seuil haut (%)",0,40,20)
-    seuil_charges   = st.slider("Alerte charges (%)",1,30,10,format="%d%%")
+    s_mg  = [st.slider("Marge bas (%)",0,100,40)/100,   st.slider("Marge haut (%)",0,100,60)/100]
+    s_rt  = [st.slider("Rentabilité bas (%)",0,30,5)/30, st.slider("Rentabilité haut (%)",0,30,12)/30]
+    s_ebe = [st.slider("EBE bas (%)",0,40,10)/40,        st.slider("EBE haut (%)",0,40,20)/40]
+    seuil_charges=st.slider("Alerte charges (%)",1,30,10,format="%d%%")
 
-# ─── CHARGEMENT ───────────────────────────────────────────
+# ── Chargement ────────────────────────────────────────────
 comptes,totaux     = lire_balance(annee)
 comptes_c,totaux_c = lire_balance(annee_c) if annee_c in EXERCICES else ({},{})
 agee               = lire_balance_agee(annee)
@@ -407,12 +439,11 @@ if not kpi:
     st.error(f"Impossible de charger la balance {annee}.")
     st.stop()
 
-ca_ann = annualiser(kpi["ca"],annee)
-ann_label = f"Annualisé ×12/{mois}" if mois!=12 else "12 mois"
+ca_ann=annualiser(kpi["ca"],annee)
 
-# ─── EN-TÊTE ──────────────────────────────────────────────
+# ── En-tête ───────────────────────────────────────────────
 st.markdown("## 🏗️ ECCO BAT — Cockpit Dirigeant")
-emoji,texte,bg,bord = sante(kpi)
+emoji,texte,bg,bord=sante(kpi)
 st.markdown(f"""
 <div style="background:{bg};border-left:5px solid {bord};border-radius:12px;
     padding:16px 22px;margin-bottom:20px;display:flex;align-items:center;gap:16px;
@@ -422,8 +453,7 @@ st.markdown(f"""
         <b style="font-size:17px">{texte}</b><br>
         <span style="font-size:12px;color:#555">
             CA {fmt(kpi['ca'])} ({fmt(ca_ann)} ann.) ·
-            Marge {fmt_pct(kpi['taux_marge'])} ·
-            EBE {fmt_pct(kpi['taux_ebe'])} ·
+            Marge {fmt_pct(kpi['taux_marge'])} · EBE {fmt_pct(kpi['taux_ebe'])} ·
             Résultat {fmt(kpi['resultat'])} ({fmt_pct(kpi['taux_rent'])}) ·
             Tréso {fmt(kpi['treso'])} · Ex. {annee} vs Ex. {annee_c}
         </span>
@@ -431,62 +461,94 @@ st.markdown(f"""
 </div>
 """,unsafe_allow_html=True)
 
-tabs = st.tabs(["🏠 Cockpit","📈 CA & Clients","🔬 Analytique","🔔 Charges & Fourn.","💰 BFR & Tréso"])
+tabs=st.tabs(["🏠 Cockpit","📈 CA & Clients","🔬 Analytique","🔔 Charges & Fourn.","💰 BFR & Tréso"])
 
-# ══════ ONGLET 1 : COCKPIT ════════════════════════════════
+# ══ ONGLET 1 : COCKPIT ════════════════════════════════════
 with tabs[0]:
-    st.markdown('<div class="section-title">Jauges de santé (seuils configurables dans le menu gauche)</div>',unsafe_allow_html=True)
-    c1,c2,c3,c4,c5 = st.columns(5)
-    s_mg  = [seuil_marge_bas/100,  seuil_marge_haut/100]
-    s_rt  = [seuil_rent_bas/30,    seuil_rent_haut/30]
-    s_ebe = [seuil_ebe_bas/40,     seuil_ebe_haut/40]
 
-    with c1: st.plotly_chart(jauge_style(kpi["taux_marge"],0,100,"Taux de marge",seuils=s_mg,
+    # Jauges
+    st.markdown('<div class="section-title">Jauges de santé</div>',unsafe_allow_html=True)
+    c1,c2,c3,c4,c5=st.columns(5)
+    with c1: st.plotly_chart(jauge(kpi["taux_marge"],0,100,"Taux de marge",seuils=s_mg,
         val_comp=kpi_c.get("taux_marge") if kpi_c else None),use_container_width=True,config=CFG)
-    with c2: st.plotly_chart(jauge_style(kpi["taux_rent"],0,30,"Rentabilité nette",seuils=s_rt,
+    with c2: st.plotly_chart(jauge(kpi["taux_rent"],0,30,"Rentabilité nette",seuils=s_rt,
         val_comp=kpi_c.get("taux_rent") if kpi_c else None),use_container_width=True,config=CFG)
-    with c3: st.plotly_chart(jauge_style(kpi["taux_ebe"],0,40,"EBE / CA",seuils=s_ebe,
+    with c3: st.plotly_chart(jauge(kpi["taux_ebe"],0,40,"EBE / CA",seuils=s_ebe,
         val_comp=kpi_c.get("taux_ebe") if kpi_c else None),use_container_width=True,config=CFG)
-    with c4: st.plotly_chart(jauge_style(min(kpi["couverture"],12),0,12,"Tréso (mois charges)",
+    with c4: st.plotly_chart(jauge(min(kpi["couverture"],12),0,12,"Tréso (mois charges)",
         unite=" mois",seuils=[0.25,0.5],
         val_comp=min(kpi_c.get("couverture",12),12) if kpi_c else None),use_container_width=True,config=CFG)
     with c5:
         bfj=kpi["bfr_jours"]
-        col_bfr=C["vert"] if bfj<60 else C["rouge"]
-        st.plotly_chart(jauge_style(bfj,0,90,"BFR en jours",unite="j",couleur=col_bfr,
-            seuils=[0.67,0.44],val_comp=kpi_c.get("bfr_jours") if kpi_c else None),use_container_width=True,config=CFG)
+        st.plotly_chart(jauge(bfj,0,90,"BFR en jours",unite="j",
+            couleur=C["vert"] if bfj<60 else C["rouge"],seuils=[0.67,0.33],
+            val_comp=kpi_c.get("bfr_jours") if kpi_c else None),use_container_width=True,config=CFG)
 
-    st.markdown('<div class="section-title">KPI essentiels — cliquer sur "Détail" pour voir les comptes</div>',unsafe_allow_html=True)
-    c1,c2,c3,c4,c5,c6 = st.columns(6)
-
-    kpi_list = [
-        (c1,"CA réel",kpi["ca"],kpi_c.get("ca") if kpi_c else None,False,C["bleu"],
-         f"Annualisé : {fmt(ca_ann)}" if mois!=12 else "","70"),
-        (c2,"Marge brute",kpi["marge"],kpi_c.get("marge") if kpi_c else None,False,C["vert"],
-         fmt_pct(kpi["taux_marge"]),"60"),
-        (c3,"Résultat net",kpi["resultat"],kpi_c.get("resultat") if kpi_c else None,False,C["violet"],
-         fmt_pct(kpi["taux_rent"]),None),
-        (c4,"Trésorerie",kpi["treso"],kpi_c.get("treso") if kpi_c else None,False,C["vert"],"","512"),
-        (c5,"Créances clients",kpi["creances"],kpi_c.get("creances") if kpi_c else None,True,C["orange"],
-         f"DSO : {kpi['dso']:.0f}j","411"),
-        (c6,"BFR",kpi["bfr"],kpi_c.get("bfr") if kpi_c else None,True,C["rouge"],
-         f"{kpi['bfr_jours']:.0f} jours",None),
+    # Valeurs en k€ sous les jauges
+    c1,c2,c3,c4,c5=st.columns(5)
+    vals_sous=[
+        (c1,f"{fmt(kpi['marge'])}",C["vert"] if kpi["taux_marge"]>45 else C["rouge"]),
+        (c2,f"{fmt(kpi['resultat'])}",C["vert"] if kpi["taux_rent"]>5 else C["rouge"]),
+        (c3,f"{fmt(kpi['ebe'])}",C["vert"] if kpi["taux_ebe"]>15 else C["rouge"]),
+        (c4,f"{fmt(kpi['treso'])}",C["vert"] if kpi["couverture"]>3 else C["rouge"]),
+        (c5,f"{fmt(kpi['bfr'])}",C["vert"] if bfj<60 else C["rouge"]),
     ]
-    for col,(c,lbl,vn,vc,inv,couleur,sub,detail_pref) in zip([c1,c2,c3,c4,c5,c6],kpi_list):
+    for col,val,coul in vals_sous:
+        with col:
+            st.markdown(f'<div style="text-align:center;font-size:13px;font-weight:600;color:{coul};margin-top:-8px;margin-bottom:12px">{val}</div>',unsafe_allow_html=True)
+
+    # KPI rectangles
+    st.markdown('<div class="section-title">KPI essentiels — cliquer pour voir le détail des comptes</div>',unsafe_allow_html=True)
+
+    kpi_defs=[
+        ("ca",    "CA réel",         kpi["ca"],       kpi_c.get("ca") if kpi_c else None,       False, C["bleu"],   f"Annualisé : {fmt(ca_ann)}" if mois!=12 else "", "70"),
+        ("marge", "Marge brute",     kpi["marge"],    kpi_c.get("marge") if kpi_c else None,    False, C["vert"],   fmt_pct(kpi["taux_marge"]),                        "60"),
+        ("res",   "Résultat net",    kpi["resultat"], kpi_c.get("resultat") if kpi_c else None, False, C["violet"], fmt_pct(kpi["taux_rent"]),                          None),
+        ("treso", "Trésorerie",      kpi["treso"],    kpi_c.get("treso") if kpi_c else None,    False, C["vert"],   "",                                                "512"),
+        ("crean", "Créances clients",kpi["creances"], kpi_c.get("creances") if kpi_c else None, True,  C["orange"], f"DSO : {kpi['dso']:.0f}j",                        "411"),
+        ("bfr",   "BFR",             kpi["bfr"],      kpi_c.get("bfr") if kpi_c else None,      True,  C["rouge"],  f"{kpi['bfr_jours']:.0f} jours",                  None),
+    ]
+
+    c1,c2,c3,c4,c5,c6=st.columns(6)
+    for col,(key,lbl,vn,vc,inv,couleur,sub,pref) in zip([c1,c2,c3,c4,c5,c6],kpi_defs):
         with col:
             vn_ann=annualiser(vn,annee)
             d=delta_html(vn_ann,vc,inv) if vc else ""
-            st.markdown(kpi_card(lbl,fmt(vn),d,sub,couleur),unsafe_allow_html=True)
-            if detail_pref and kpi["detail"].get(detail_pref):
-                with st.expander("📋 Détail comptes"):
-                    rows=[{"Compte":num,"Intitulé":c["intitule"][:35],
-                           "Montant":fmt(max(c["debit"],c["credit"],c.get("sd",0),c.get("sc",0)),k=False)}
-                          for num,c in sorted(kpi["detail"][detail_pref].items(),
-                          key=lambda x:-max(x[1]["debit"],x[1]["credit"],x[1].get("sd",0),x[1].get("sc",0)))]
-                    if rows: st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True,height=180)
+            st.markdown(kpi_card_html(lbl,fmt(vn),d,sub,couleur),unsafe_allow_html=True)
+            if st.button(f"🔍 Détail",key=f"btn_{key}",use_container_width=True):
+                if st.session_state["panel_ouvert"]==key:
+                    st.session_state["panel_ouvert"]=None
+                else:
+                    st.session_state["panel_ouvert"]=key
+                st.rerun()
 
+    # Panneau pleine largeur sous les KPI
+    panel=st.session_state.get("panel_ouvert")
+    pref_map={"ca":"70","marge":"60","treso":"512","crean":"411"}
+    titre_map={
+        "ca":"Comptes de ventes (70) — Détail du CA",
+        "marge":"Achats & matières (60) — Détail des charges",
+        "treso":"Comptes bancaires (512) — Détail de la trésorerie",
+        "crean":"Comptes clients (411) — Détail des créances",
+    }
+    if panel in pref_map:
+        pref=pref_map[panel]
+        panel_detail(
+            titre_map[panel],
+            kpi["detail"].get(pref,{}),
+            annee,
+            kpi_c["detail"].get(pref,{}) if kpi_c else None,
+            couleur=dict(zip(["ca","marge","treso","crean"],[C["bleu"],C["vert"],C["vert"],C["orange"]]))[panel]
+        )
+    elif panel in ["res","bfr"]:
+        st.info("ℹ️ Le résultat net et le BFR sont des agrégats — voir l'onglet **Analytique** et **BFR & Tréso** pour le détail.")
+        if st.button("✕ Fermer",key="close_agg"):
+            st.session_state["panel_ouvert"]=None
+            st.rerun()
+
+    # Objectifs
     st.markdown('<div class="section-title">Suivi des objectifs</div>',unsafe_allow_html=True)
-    c1,c2,c3,c4 = st.columns(4)
+    c1,c2,c3,c4=st.columns(4)
     for col,lbl,reel,cible,inv,couleur in [
         (c1,"CA",kpi["ca"],obj_ca*1000,False,C["bleu"]),
         (c2,"Marge brute",kpi["marge"],obj_marge*1000,False,C["vert"]),
@@ -505,15 +567,16 @@ with tabs[0]:
                     <div style="width:{min(pct,100):.0f}%;height:100%;background:{bar_col};border-radius:6px"></div>
                 </div></div>""",unsafe_allow_html=True)
 
+    # Alertes impayés
     if agee and agee.get("plus_61",0)>0:
         st.markdown('<div class="section-title">🚨 Impayés critiques +61 jours</div>',unsafe_allow_html=True)
         for c in [x for x in agee.get("clients",[]) if x.get("plus_61",0)>500][:5]:
             st.markdown(f'<div class="alert-r">⚠️ <b>{c["nom"]}</b> — {fmt(c["plus_61"],k=False)} en retard +61j · Total dû : {fmt(c["total"],k=False)}</div>',unsafe_allow_html=True)
 
-# ══════ ONGLET 2 : CA & CLIENTS ══════════════════════════
+# ══ ONGLET 2 : CA & CLIENTS ══════════════════════════════
 with tabs[1]:
     if mensuel:
-        st.markdown('<div class="section-title">CA mensuel HT estimé (proportionnel grand livre clients)</div>',unsafe_allow_html=True)
+        st.markdown('<div class="section-title">CA mensuel HT (total annuel = CA balance générale)</div>',unsafe_allow_html=True)
         ordre_mois=[f"{y}-{m:02d}" for y in range(2022,2026) for m in range(1,13)]
         mois_pres=[m for m in ordre_mois if m in mensuel]
         vals_m=[mensuel[m] for m in mois_pres]
@@ -523,15 +586,15 @@ with tabs[1]:
         x_labels=[labels_fr.get(m.split("-")[1],m)+"-"+m.split("-")[0][-2:] for m in mois_pres]
         fig=go.Figure()
         fig.add_trace(go.Bar(x=x_labels,y=vals_m,name="CA HT mensuel",
-            marker_color=[C["rouge"] if v<moy*0.5 else C["vert"] if v>moy*1.5 else C["bleu"] for v in vals_m]))
+            marker_color=[C["rouge"] if v<moy*0.5 else C["vert"] if v>moy*1.5 else C["bleu"] for v in vals_m],
+            text=[fmt(v,k=False) for v in vals_m],textposition="outside",textfont=dict(size=9)))
         fig.add_trace(go.Scatter(x=x_labels,y=[moy]*len(mois_pres),mode="lines",
             line=dict(color=C["orange"],dash="dash",width=1.5),name=f"Moy. {fmt(moy,k=False)}"))
-        fig.update_layout(height=280,margin=dict(t=10,b=0,l=0,r=0),
+        fig.update_layout(height=300,margin=dict(t=30,b=0,l=0,r=0),
             legend=dict(orientation="h",y=1.1),
             plot_bgcolor="rgba(0,0,0,0)",paper_bgcolor="rgba(0,0,0,0)",
             yaxis=dict(title="€ HT",gridcolor="#f0f0f0"))
         st.plotly_chart(fig,use_container_width=True,config=CFG)
-        st.caption(f"⚠️ CA annuel total = {fmt(kpi['ca'])} HT réel (balance générale). Répartition mensuelle proportionnelle au grand livre clients.")
 
     if clients_d:
         st.markdown('<div class="section-title">Top 10 clients</div>',unsafe_allow_html=True)
@@ -543,28 +606,33 @@ with tabs[1]:
             for nom,v in top10:
                 pct=v/total_cli*100 if total_cli>0 else 0
                 vc_cli=clients_c.get(nom,0)
-                var_pct=(annualiser(v,annee)-vc_cli)/vc_cli*100 if vc_cli>0 else None
-                var_str=(f"{'+'if var_pct>0 else ''}{fmt_pct(var_pct)} ({fmt(vc_cli)})" if var_pct is not None else "Nouveau")
-                rows.append({"**Client**":f"**{nom}**","CA HT":fmt(v,k=False),
-                             "% CA":f"{pct:.1f}%","vs N-1":var_str})
+                if vc_cli>0:
+                    p=(annualiser(v,annee)-vc_cli)/vc_cli*100
+                    var=f"{'+'if p>0 else ''}{fmt_pct(p)} ({fmt(vc_cli)})"
+                else:
+                    var="Nouveau"
+                rows.append({"Client":nom,"CA HT":fmt(v,k=False),
+                             "% CA":f"{pct:.1f}%","vs N-1":var})
             df_cli=pd.DataFrame(rows)
-            st.dataframe(df_cli,use_container_width=True,hide_index=True)
+            # Mettre en gras les noms
+            st.dataframe(df_cli,use_container_width=True,hide_index=True,
+                        column_config={"Client":st.column_config.TextColumn("Client",width="medium")})
         with c2:
             noms=[n[:22] for n,_ in top10]
             vals_cli=[v/1000 for _,v in top10]
             fig=go.Figure(go.Bar(y=noms[::-1],x=vals_cli[::-1],orientation="h",
                 marker_color=C["bleu"],
                 text=[fmt(v*1000) for v in vals_cli[::-1]],textposition="outside"))
-            fig.update_layout(height=320,margin=dict(t=10,b=0,l=0,r=80),
+            fig.update_layout(height=320,margin=dict(t=10,b=0,l=0,r=100),
                 plot_bgcolor="rgba(0,0,0,0)",paper_bgcolor="rgba(0,0,0,0)",
                 xaxis=dict(title="k€ HT",gridcolor="#f0f0f0"))
             st.plotly_chart(fig,use_container_width=True,config=CFG)
 
         if top10:
             top1_pct=top10[0][1]/total_cli*100
-            top3_pct=sum(v for _,v in top10[:3])/total_cli*100
             if top1_pct>20:
                 st.markdown(f'<div class="alert-r">🚨 <b>{top10[0][0]}</b> = {fmt_pct(top1_pct)} du CA — risque dépendance critique</div>',unsafe_allow_html=True)
+            top3_pct=sum(v for _,v in top10[:3])/total_cli*100
             if top3_pct>50:
                 st.markdown(f'<div class="alert-a">⚠️ Top 3 clients = {fmt_pct(top3_pct)} du CA — diversification recommandée</div>',unsafe_allow_html=True)
 
@@ -572,31 +640,28 @@ with tabs[1]:
         st.markdown('<div class="section-title">Balance âgée clients</div>',unsafe_allow_html=True)
         total=agee["total"]
         c1,c2,c3,c4,c5=st.columns(5)
-        with c1: st.markdown(kpi_card("Total créances",fmt(total)),unsafe_allow_html=True)
-        with c2: st.markdown(kpi_card("Non échu",fmt(agee["non_echu"]),f"{agee['non_echu']/total*100:.0f}%"),unsafe_allow_html=True)
-        with c3: st.markdown(kpi_card("1-30 jours",fmt(agee["j1_30"])),unsafe_allow_html=True)
+        with c1: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Total créances</div><div class="kpi-value">{fmt(total)}</div></div>',unsafe_allow_html=True)
+        with c2: st.markdown(f'<div class="kpi-card"><div class="kpi-label">Non échu</div><div class="kpi-value">{fmt(agee["non_echu"])}</div><div class="kpi-sub">{agee["non_echu"]/total*100:.0f}%</div></div>',unsafe_allow_html=True)
+        with c3: st.markdown(f'<div class="kpi-card"><div class="kpi-label">1-30 jours</div><div class="kpi-value">{fmt(agee["j1_30"])}</div></div>',unsafe_allow_html=True)
         with c4:
-            p61=agee["plus_61"]
-            p61_c=agee_c.get("plus_61",0) if agee_c else 0
-            st.markdown(kpi_card("⚠️ +61 jours",fmt(p61),
-                delta_html(p61,p61_c,inv=True) if p61_c else "",f"{p61/total*100:.0f}%"),unsafe_allow_html=True)
-        with c5: st.markdown(kpi_card("DSO estimé",f"{kpi['dso']:.0f} jours"),unsafe_allow_html=True)
-
+            p61=agee["plus_61"]; p61_c=agee_c.get("plus_61",0) if agee_c else 0
+            d=delta_html(p61,p61_c,inv=True) if p61_c else ""
+            st.markdown(f'<div class="kpi-card" style="border-top:4px solid {C["rouge"]}"><div class="kpi-label">⚠️ +61 jours</div><div class="kpi-value">{fmt(p61)}</div><div class="kpi-delta">{d}</div><div class="kpi-sub">{p61/total*100:.0f}%</div></div>',unsafe_allow_html=True)
+        with c5: st.markdown(f'<div class="kpi-card"><div class="kpi-label">DSO estimé</div><div class="kpi-value">{kpi["dso"]:.0f} j</div></div>',unsafe_allow_html=True)
         retards=[c for c in agee["clients"] if c.get("plus_61",0)>100]
         if retards:
-            st.dataframe(pd.DataFrame([{"**Client**":f"**{c['nom']}**",
-                "Total dû":fmt(c["total"],k=False),"+61j":fmt(c["plus_61"],k=False)} for c in retards]),
+            st.dataframe(pd.DataFrame([{"Client":c["nom"],"Total dû":fmt(c["total"],k=False),
+                "+61j":fmt(c["plus_61"],k=False)} for c in retards]),
                 use_container_width=True,hide_index=True)
 
-# ══════ ONGLET 3 : ANALYTIQUE ═════════════════════════════
+# ══ ONGLET 3 : ANALYTIQUE ═════════════════════════════════
 with tabs[2]:
     if not analytique:
         st.info("Balance analytique non disponible.")
     else:
-        st.markdown('<div class="section-title">Performance par activité — totaux de sections (crédit = CA, débit = charges)</div>',unsafe_allow_html=True)
-        st.caption("ℹ️ Les montants analytiques peuvent différer du CA total en raison des refacturations internes entre sections.")
-
-        acts=[k for k in analytique]
+        st.markdown('<div class="section-title">Performance par activité</div>',unsafe_allow_html=True)
+        st.caption("ℹ️ Crédit = CA de la section · Débit = charges directes · Écart possible avec le CA total (refacturations internes)")
+        acts=list(analytique.keys())
         cols=st.columns(len(acts))
         for col,code in zip(cols,acts):
             data=analytique[code]
@@ -612,27 +677,26 @@ with tabs[2]:
                     {('<div class="kpi-delta">'+delta_html(annualiser(data['ca'],annee),ca_c_a)+'</div>') if ca_c_a else ''}
                 </div>""",unsafe_allow_html=True)
 
+        st.markdown('<div class="section-title">Détail par activité</div>',unsafe_allow_html=True)
         for code in acts:
             data=analytique[code]
             ca_c_a=ana_c.get(code,{}).get("ca",0)
             mg_c_a=ana_c.get(code,{}).get("marge",0)
-            with st.expander(f"📊 Détail — {data['label']}", expanded=False):
+            with st.expander(f"📊 {data['label']} — CA : {fmt(data['ca'])} · Marge : {fmt(data['marge'])} ({fmt_pct(data['taux_marge'])})",expanded=False):
                 c1,c2,c3,c4=st.columns(4)
                 with c1:
-                    st.metric("CA (crédit)",fmt(data["ca"]))
+                    st.metric("CA (crédit section)",fmt(data["ca"]))
                     if ca_c_a: st.markdown(delta_html(annualiser(data["ca"],annee),ca_c_a),unsafe_allow_html=True)
-                with c2:
-                    st.metric("Charges (débit)",fmt(data["charges"]))
+                with c2: st.metric("Charges directes",fmt(data["charges"]))
                 with c3:
                     st.metric("Marge",fmt(data["marge"]))
                     if mg_c_a: st.markdown(delta_html(annualiser(data["marge"],annee),mg_c_a),unsafe_allow_html=True)
-                with c4:
-                    st.metric("Taux de marge",fmt_pct(data["taux_marge"]))
+                with c4: st.metric("Taux de marge",fmt_pct(data["taux_marge"]))
 
         if ana_c:
-            st.markdown('<div class="section-title">Comparatif N vs N-1 (annualisé)</div>',unsafe_allow_html=True)
-            fig=go.Figure()
+            st.markdown('<div class="section-title">Comparatif N vs N-1 annualisé</div>',unsafe_allow_html=True)
             labels_act=[analytique[a]["label"][:20] for a in acts]
+            fig=go.Figure()
             fig.add_trace(go.Bar(name=f"CA {annee} ann.",x=labels_act,
                 y=[annualiser(analytique[a]["ca"],annee)/1000 for a in acts],marker_color=C["bleu"]))
             fig.add_trace(go.Bar(name=f"CA {annee_c}",x=labels_act,
@@ -647,18 +711,19 @@ with tabs[2]:
                 yaxis=dict(title="k€",gridcolor="#f0f0f0"))
             st.plotly_chart(fig,use_container_width=True,config=CFG)
 
-# ══════ ONGLET 4 : CHARGES & FOURNISSEURS ════════════════
+# ══ ONGLET 4 : CHARGES & FOURNISSEURS ═════════════════════
 with tabs[3]:
-    postes_config=[
+    postes=[
         ("Achats & matières (60)",kpi["achats"],kpi_c.get("achats",0) if kpi_c else 0,C["bleu"],"60"),
         ("Personnel (64)",kpi["charges_pers"],kpi_c.get("charges_pers",0) if kpi_c else 0,C["vert"],"64"),
         ("Services ext. (61)",kpi["services"],kpi_c.get("services",0) if kpi_c else 0,C["orange"],"61"),
         ("Autres charges (62)",kpi["autres"],kpi_c.get("autres",0) if kpi_c else 0,C["gris"],"62"),
         ("IS (69)",kpi["is_"],kpi_c.get("is_",0) if kpi_c else 0,C["rouge"],"69"),
     ]
-    st.markdown('<div class="section-title">Structure des charges — cliquer pour voir les comptes qui ont le plus bougé</div>',unsafe_allow_html=True)
-    cols=st.columns(len(postes_config))
-    for col,(lbl,vn,vc,couleur,pref) in zip(cols,postes_config):
+
+    st.markdown('<div class="section-title">Structure des charges — cliquer pour le détail des variations</div>',unsafe_allow_html=True)
+    c1,c2,c3,c4,c5=st.columns(5)
+    for col,(lbl,vn,vc,couleur,pref) in zip([c1,c2,c3,c4,c5],postes):
         vn_ann=annualiser(vn,annee)
         d=delta_html(vn_ann,vc,inv=True) if vc else ""
         pct_ca=vn_ann/annualiser(kpi["ca"],annee)*100 if kpi["ca"]>0 else 0
@@ -668,28 +733,30 @@ with tabs[3]:
                 <div class="kpi-value">{fmt(vn)}</div>
                 <div class="kpi-delta">{d}</div>
                 <div class="kpi-sub">{fmt_pct(pct_ca)} du CA</div>
+                <div class="kpi-hint">🔍 Cliquer pour le détail</div>
             </div>""",unsafe_allow_html=True)
+            if st.button("📊 Variations",key=f"btn_var_{pref}",use_container_width=True):
+                if st.session_state["panel_ouvert"]==f"var_{pref}":
+                    st.session_state["panel_ouvert"]=None
+                else:
+                    st.session_state["panel_ouvert"]=f"var_{pref}"
+                st.rerun()
 
-            if kpi_c and annee_c in EXERCICES:
-                with st.expander("📊 Top variations"):
-                    hausses,baisses=top_variations_comptes(annee,annee_c,pref)
-                    if hausses:
-                        st.markdown("**📈 Hausses**")
-                        st.dataframe(pd.DataFrame([{"Compte":v["compte"],"Intitulé":v["intitule"],f"Ex.{annee} ann.":v["N_ann"],f"Ex.{annee_c}":v["N1"],"Var.":v["var"]} for v in hausses]),use_container_width=True,hide_index=True,height=160)
-                    if baisses:
-                        st.markdown("**📉 Baisses**")
-                        st.dataframe(pd.DataFrame([{"Compte":v["compte"],"Intitulé":v["intitule"],f"Ex.{annee} ann.":v["N_ann"],f"Ex.{annee_c}":v["N1"],"Var.":v["var"]} for v in baisses]),use_container_width=True,hide_index=True,height=160)
+    # Panneau variations pleine largeur
+    for lbl,vn,vc,couleur,pref in postes:
+        if st.session_state.get("panel_ouvert")==f"var_{pref}" and annee_c in EXERCICES:
+            panel_variations(lbl,annee,annee_c,pref,couleur)
+            break
 
-    # Alertes charges
+    # Alertes
     if kpi_c:
         st.markdown('<div class="section-title">Alertes variations charges N vs N-1</div>',unsafe_allow_html=True)
-        for lbl,vn,vc,_,__ in postes_config:
+        for lbl,vn,vc,_,__ in postes:
             if vc>0:
                 p=(annualiser(vn,annee)-vc)/vc*100
                 if abs(p)>seuil_charges:
                     cls="alert-r" if p>seuil_charges else "alert-g"
-                    icn="📈" if p>0 else "📉"
-                    st.markdown(f'<div class="{cls}">{icn} <b>{lbl}</b> — {fmt(vc)} → {fmt(annualiser(vn,annee))} ann. ({"+" if p>0 else ""}{fmt_pct(p)})</div>',unsafe_allow_html=True)
+                    st.markdown(f'<div class="{cls}">{"📈" if p>0 else "📉"} <b>{lbl}</b> — {fmt(vc)} → {fmt(annualiser(vn,annee))} ann. ({"+" if p>0 else ""}{fmt_pct(p)})</div>',unsafe_allow_html=True)
 
     # Top fournisseurs
     if fourn:
@@ -701,111 +768,105 @@ with tabs[3]:
             rows=[]
             for nom,v in top10f:
                 vc_f=fourn_c.get(nom,0)
-                var_pct=(annualiser(v,annee)-vc_f)/vc_f*100 if vc_f>0 else None
-                var_str=(f"{'+'if var_pct>0 else ''}{fmt_pct(var_pct)}" if var_pct is not None else "Nouveau")
-                rows.append({"**Fournisseur**":f"**{nom}**","Facturé":fmt(v,k=False),
-                             "%":f"{v/total_f*100:.1f}%","vs N-1":var_str})
-            st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True)
+                if vc_f>0:
+                    p=(annualiser(v,annee)-vc_f)/vc_f*100
+                    var=f"{'+'if p>0 else ''}{fmt_pct(p)}"
+                else: var="Nouveau"
+                rows.append({"Fournisseur":nom,"Facturé":fmt(v,k=False),
+                             "%":f"{v/total_f*100:.1f}%","vs N-1":var})
+            st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True,
+                column_config={"Fournisseur":st.column_config.TextColumn("Fournisseur",width="medium")})
         with c2:
             noms_f=[n[:22] for n,_ in top10f]
             vals_f=[v/1000 for _,v in top10f]
             vals_c_f=[fourn_c.get(n,0)/1000 for n,_ in top10f]
             fig=go.Figure()
-            fig.add_trace(go.Bar(name=annee,y=noms_f[::-1],x=vals_f[::-1],
-                orientation="h",marker_color=C["bleu"]))
+            fig.add_trace(go.Bar(name=annee,y=noms_f[::-1],x=vals_f[::-1],orientation="h",marker_color=C["bleu"]))
             if any(v>0 for v in vals_c_f):
-                fig.add_trace(go.Bar(name=annee_c,y=noms_f[::-1],x=vals_c_f[::-1],
-                    orientation="h",marker_color="#85B7EB"))
-            fig.update_layout(barmode="group",height=320,margin=dict(t=10,b=0,l=0,r=80),
+                fig.add_trace(go.Bar(name=annee_c,y=noms_f[::-1],x=vals_c_f[::-1],orientation="h",marker_color="#85B7EB"))
+            fig.update_layout(barmode="group",height=320,margin=dict(t=10,b=0,l=0,r=100),
                 legend=dict(orientation="h",y=1.1),
                 plot_bgcolor="rgba(0,0,0,0)",paper_bgcolor="rgba(0,0,0,0)",
                 xaxis=dict(title="k€",gridcolor="#f0f0f0"))
             st.plotly_chart(fig,use_container_width=True,config=CFG)
 
-# ══════ ONGLET 5 : BFR & TRÉSO ═══════════════════════════
+# ══ ONGLET 5 : BFR & TRÉSO ════════════════════════════════
 with tabs[4]:
     st.markdown('<div class="section-title">Ratios financiers clés</div>',unsafe_allow_html=True)
-    c1,c2,c3,c4,c5 = st.columns(5)
-    with c1: st.markdown(kpi_card("Trésorerie",fmt(kpi["treso"]),
-        delta_html(kpi["treso"],kpi_c.get("treso") if kpi_c else None),"",C["vert"]),unsafe_allow_html=True)
-    with c2: st.markdown(kpi_card("BFR",fmt(kpi["bfr"]),
-        delta_html(kpi["bfr"],kpi_c.get("bfr") if kpi_c else None,inv=True),
-        f"{kpi['bfr_jours']:.0f} jours",C["orange"]),unsafe_allow_html=True)
-    with c3: st.markdown(kpi_card("CAF",fmt(kpi["caf"]),
-        delta_html(annualiser(kpi["caf"],annee),kpi_c.get("caf") if kpi_c else None),"",C["bleu"]),unsafe_allow_html=True)
-    with c4: st.markdown(kpi_card("FR disponible",fmt(kpi["treso"]-kpi["bfr"]),
-        "","Tréso − BFR",C["violet"]),unsafe_allow_html=True)
-    with c5: st.markdown(kpi_card("DSO",f"{kpi['dso']:.0f} jours",
-        delta_html(kpi["dso"],kpi_c.get("dso") if kpi_c else None,inv=True),"",C["rouge"]),unsafe_allow_html=True)
+    c1,c2,c3,c4,c5=st.columns(5)
+    ratios=[
+        (c1,"Trésorerie",fmt(kpi["treso"]),delta_html(kpi["treso"],kpi_c.get("treso") if kpi_c else None),"",C["vert"]),
+        (c2,"BFR",fmt(kpi["bfr"]),delta_html(kpi["bfr"],kpi_c.get("bfr") if kpi_c else None,inv=True),f"{kpi['bfr_jours']:.0f} jours",C["orange"]),
+        (c3,"CAF",fmt(kpi["caf"]),delta_html(annualiser(kpi["caf"],annee),kpi_c.get("caf") if kpi_c else None),"",C["bleu"]),
+        (c4,"FR disponible",fmt(kpi["treso"]-kpi["bfr"]),"","Tréso − BFR",C["violet"]),
+        (c5,"DSO",f"{kpi['dso']:.0f} jours",delta_html(kpi["dso"],kpi_c.get("dso") if kpi_c else None,inv=True),"",C["rouge"]),
+    ]
+    for col,lbl,val,d,sub,couleur in ratios:
+        with col:
+            st.markdown(f'<div class="kpi-card" style="border-top:4px solid {couleur}"><div class="kpi-label">{lbl}</div><div class="kpi-value">{val}</div><div class="kpi-delta">{d}</div><div class="kpi-sub">{sub}</div></div>',unsafe_allow_html=True)
 
-    # BFR décomposition — version visuelle fun
     st.markdown('<div class="section-title">Décomposition du BFR</div>',unsafe_allow_html=True)
-    c1,c2,c3,c4,c5 = st.columns([2,1,2,1,2])
+    c1,c2,c3,c4,c5=st.columns([3,1,3,1,3])
     with c1:
         st.markdown(f"""<div class="bfr-box" style="border-top:4px solid {C['bleu']}">
-            <div class="bfr-icon">📦</div>
+            <div style="font-size:36px">📦</div>
             <div class="bfr-val">{fmt(kpi['stocks'],k=False)}</div>
-            <div class="bfr-lbl">Stocks (31/32/33)</div>
+            <div class="bfr-lbl">Stocks</div>
         </div>""",unsafe_allow_html=True)
     with c2:
-        st.markdown(f"""<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;font-weight:700;color:{C['bleu']}">+</div>""",unsafe_allow_html=True)
+        st.markdown(f'<div style="display:flex;align-items:center;justify-content:center;height:140px;font-size:32px;font-weight:700;color:{C["bleu"]}">+</div>',unsafe_allow_html=True)
     with c3:
         st.markdown(f"""<div class="bfr-box" style="border-top:4px solid {C['orange']}">
-            <div class="bfr-icon">🧾</div>
+            <div style="font-size:36px">🧾</div>
             <div class="bfr-val">{fmt(kpi['creances'],k=False)}</div>
-            <div class="bfr-lbl">Créances clients (411)</div>
-            <div class="kpi-sub">DSO {kpi['dso']:.0f}j</div>
+            <div class="bfr-lbl">Créances clients · DSO {kpi['dso']:.0f}j</div>
+            <div style="font-size:12px;color:#aaa;margin-top:4px">Dettes fourn. déduites : −{fmt(kpi['dettes_f'],k=False)}</div>
         </div>""",unsafe_allow_html=True)
     with c4:
-        st.markdown(f"""<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;font-weight:700;color:{C['rouge']}">−</div>""",unsafe_allow_html=True)
-    with c5:
         couleur_bfr=C["vert"] if kpi["bfr"]<obj_bfr*1000 else C["rouge"]
+        st.markdown(f'<div style="display:flex;align-items:center;justify-content:center;height:140px;font-size:32px;font-weight:700;color:{couleur_bfr}">=</div>',unsafe_allow_html=True)
+    with c5:
+        d_bfr=delta_html(kpi["bfr"],kpi_c.get("bfr") if kpi_c else None,inv=True)
         st.markdown(f"""<div class="bfr-box" style="border-top:4px solid {couleur_bfr}">
-            <div class="bfr-icon">🏗️</div>
+            <div style="font-size:36px">{'✅' if kpi['bfr']<obj_bfr*1000 else '⚠️'}</div>
             <div class="bfr-val" style="color:{couleur_bfr}">{fmt(kpi['bfr'],k=False)}</div>
-            <div class="bfr-lbl">= BFR ({kpi['bfr_jours']:.0f}j)</div>
-            {('<div class="kpi-delta">'+delta_html(kpi["bfr"],kpi_c.get("bfr") if kpi_c else None,inv=True)+'</div>') if kpi_c else ''}
+            <div class="bfr-lbl">BFR · {kpi['bfr_jours']:.0f} jours</div>
+            <div style="font-size:12px;margin-top:4px">{d_bfr}</div>
         </div>""",unsafe_allow_html=True)
 
-    # Note dettes fournisseurs
-    st.markdown(f"""<div style="text-align:center;font-size:12px;color:#8896a5;margin-top:4px">
-        ⚠️ Dettes fournisseurs (401) déduites : <b>{fmt(kpi['dettes_f'],k=False)}</b>
-        &nbsp;|&nbsp; BFR = Stocks + Créances − Dettes fourn.
-    </div>""",unsafe_allow_html=True)
-
-    # Évolution pluriannuelle — histogramme uniquement sur les exercices complets
+    # Évolution pluriannuelle histogramme
     annees_dispo=[a for a in ["2023","2024","2025"] if (DATA/f"balance_generale_{a}.xlsx").exists()]
     if len(annees_dispo)>=2:
-        st.markdown('<div class="section-title">Évolution pluriannuelle (exercices entiers, annualisé)</div>',unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Évolution pluriannuelle — histogramme par exercice</div>',unsafe_allow_html=True)
         kpis_g={}
         for a in annees_dispo:
             cp,tt=lire_balance(a)
             if cp: kpis_g[a]=calculer_kpi(cp,tt)
 
         x_labels=[f"Ex. {a}" for a in annees_dispo]
-        metrics={
-            "CA ann.":([annualiser(kpis_g[a]["ca"],a)/1000 for a in annees_dispo],C["bleu"]),
-            "Marge ann.":([annualiser(kpis_g[a]["marge"],a)/1000 for a in annees_dispo],C["vert"]),
-            "EBE ann.":([annualiser(kpis_g[a]["ebe"],a)/1000 for a in annees_dispo],C["orange"]),
-            "Résultat ann.":([annualiser(kpis_g[a]["resultat"],a)/1000 for a in annees_dispo],C["violet"]),
-            "Trésorerie":([kpis_g[a]["treso"]/1000 for a in annees_dispo],C["gris"]),
-        }
         fig2=go.Figure()
-        for nom,(vals,couleur) in metrics.items():
+        metriques=[
+            (f"CA ann.",[annualiser(kpis_g[a]["ca"],a)/1000 for a in annees_dispo],C["bleu"]),
+            (f"Marge ann.",[annualiser(kpis_g[a]["marge"],a)/1000 for a in annees_dispo],C["vert"]),
+            (f"EBE ann.",[annualiser(kpis_g[a]["ebe"],a)/1000 for a in annees_dispo],C["orange"]),
+            (f"Résultat ann.",[annualiser(kpis_g[a]["resultat"],a)/1000 for a in annees_dispo],C["violet"]),
+            (f"Trésorerie",[kpis_g[a]["treso"]/1000 for a in annees_dispo],C["gris"]),
+        ]
+        for nom,vals,couleur in metriques:
             fig2.add_trace(go.Bar(name=nom,x=x_labels,y=vals,marker_color=couleur,
                 text=[fmt(v*1000) for v in vals],textposition="outside",textfont=dict(size=10)))
-        fig2.update_layout(barmode="group",height=350,margin=dict(t=30,b=0,l=0,r=0),
+        fig2.update_layout(barmode="group",height=360,margin=dict(t=30,b=0,l=0,r=0),
             legend=dict(orientation="h",y=1.12),
             plot_bgcolor="rgba(0,0,0,0)",paper_bgcolor="rgba(0,0,0,0)",
             yaxis=dict(title="k€",gridcolor="#f0f0f0"),
             xaxis=dict(categoryorder="array",categoryarray=x_labels))
         st.plotly_chart(fig2,use_container_width=True,config=CFG)
 
-    st.markdown("""<div style="font-size:11px;color:#8896a5;font-style:italic;background:white;
-        padding:10px 14px;border-radius:8px;border:1px solid #e8ecf0;margin-top:8px">
+    st.markdown("""<div style="font-size:11px;color:#8896a5;background:white;padding:10px 14px;
+        border-radius:8px;border:1px solid #e8ecf0;margin-top:8px">
         EBE = CA − Achats − Personnel − Services − Autres charges − Impôts&taxes &nbsp;|&nbsp;
-        Résultat d'exploitation = EBE − Dotations &nbsp;|&nbsp;
+        Résultat exploitation = EBE − Dotations &nbsp;|&nbsp;
         CAF = Résultat net + Dotations &nbsp;|&nbsp;
-        BFR en jours = BFR × 365 / CA &nbsp;|&nbsp;
+        BFR = Stocks + Créances − Dettes fourn. &nbsp;|&nbsp;
         DSO = Créances × 365 / CA
     </div>""",unsafe_allow_html=True)
