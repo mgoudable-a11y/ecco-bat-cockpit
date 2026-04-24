@@ -218,9 +218,10 @@ def jauge(val, min_v, max_v, titre, unite="%", couleur=None, val_comp=None,
 def jauge_verticale(pct, label, valeur_str, valeur_keur):
     """Thermomètre vertical avec graduation % et valeur k€"""
     pct_c = min(pct, 100)
-    if pct < 50:   couleur, bg = "#D85A30", "#FFF5F5"
-    elif pct < 80: couleur, bg = "#BA7517", "#FFFBEB"
-    else:           couleur, bg = "#1D9E75", "#F0FFF4"
+    if pct < 50:    couleur, bg = "#D85A30", "#FFF5F5"
+    elif pct < 70:  couleur, bg = "#E07030", "#FFF3EE"
+    elif pct < 100: couleur, bg = "#D4A017", "#FFFBEB"
+    else:            couleur, bg = "#1D9E75", "#F0FFF4"
 
     fig = go.Figure()
 
