@@ -637,7 +637,7 @@ with tabs[0]:
         with col:
             vn_ann=annualiser(vn,annee)
             d=delta_html(vn_ann,vc,inv) if vc else ""
-            sub_display = f"Réel : {fmt(vn)} · {sub}" if mois!=12 and sub else (f"Réel : {fmt(vn)}" if mois!=12 else sub)
+
             actif = st.session_state.get("panel_ouvert")==key
             top_border = f"border-top: 4px solid {couleur} !important;"
             active_style = f"border: 2px solid {couleur} !important; box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important;" if actif else top_border
