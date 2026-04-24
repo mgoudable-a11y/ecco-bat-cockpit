@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -702,13 +701,98 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
         "crean":"Comptes clients (411) — Détail des créances",
     }
     if panel in pref_map:
-        panel_detail(titre_map[panel],kpi["detail"].get(pref_map[panel],{}),annee,
-                     kpi_c["detail"].get(pref_map[panel],{}) if kpi_c else None,
-                     couleur=dict(ca=C["bleu"],marge=C["vert"],treso=C["vert"],crean=C["orange"])[panel])
+        if panel == "crean":
+            # Créances : afficher les comptes + clients qui n'ont pas payé
+            st.markdown('<div class="panel"><div class="panel-title">🧾 Créances clients — Comptes 411 + Impayés</div>', unsafe_allow_html=True)
+            c1, c2 = st.columns([1, 1])
+            with c1:
+                st.markdown("**Détail comptes 411**")
+                rows = []
+                for num, c in sorted(kpi["detail"].get("411", {}).items(),
+                    key=lambda x: -x[1].get("sd", 0)):
+                    if c.get("sd", 0) > 0:
+                        rows.append({"Compte": num, "Intitulé": c["intitule"][:40],
+                                     "Solde dû": fmt(c["sd"], k=False)})
+                if rows:
+                    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True, height=300)
+            with c2:
+                st.markdown("**Clients avec solde impayé (balance âgée)**")
+                if agee and agee.get("clients"):
+                    retards = [c for c in agee["clients"] if c.get("total", 0) > 0]
+                    df_r = pd.DataFrame([{
+                        "Client": c["nom"],
+                        "Total dû": fmt(c["total"], k=False),
+                        "Non échu": fmt(c["non_echu"], k=False),
+                        "+61j": fmt(c["plus_61"], k=False) if c["plus_61"] > 0 else "—",
+                    } for c in retards[:15]])
+                    st.dataframe(df_r, use_container_width=True, hide_index=True, height=300)
+                else:
+                    st.info("Balance âgée non disponible")
+            st.markdown('</div>', unsafe_allow_html=True)
+            if st.button("✕ Fermer", key="close_crean"):
+                st.session_state["panel_ouvert"] = None
+                st.rerun()
+        else:
+            panel_detail(titre_map[panel], kpi["detail"].get(pref_map[panel], {}), annee,
+                         kpi_c["detail"].get(pref_map[panel], {}) if kpi_c else None,
+                         couleur=dict(ca=C["bleu"], marge=C["vert"], treso=C["vert"])[panel])
     elif panel in ["res","ebe","bfr"]:
-        noms={"res":"Résultat net","ebe":"EBE","bfr":"BFR"}
-        st.info(f"ℹ️ {noms[panel]} est un agrégat calculé — voir **Analytique** et **BFR & Tréso** pour le détail.")
-        if st.button("✕ Fermer",key="close_agg"): st.session_state["panel_ouvert"]=None; st.rerun()
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        if panel == "ebe":
+            st.markdown('<div class="panel-title">⚙️ EBE — Excédent Brut d\'Exploitation — Détail du calcul</div>', unsafe_allow_html=True)
+            rows = [
+                ("CA (comptes 70)",          kpi["ca"],           "+"),
+                ("− Achats & matières (60)",  kpi["achats"],       "−"),
+                ("− Personnel (64)",          kpi["charges_pers"], "−"),
+                ("− Services ext. (61)",      kpi["services"],     "−"),
+                ("− Autres charges (62)",     kpi["autres"],       "−"),
+                ("− Impôts & taxes (63)",     kpi["impots"],       "−"),
+            ]
+            total = kpi["ebe"]
+        elif panel == "res":
+            st.markdown('<div class="panel-title">📈 Résultat net — Détail du calcul</div>', unsafe_allow_html=True)
+            rows = [
+                ("EBE",                       kpi["ebe"],          "+"),
+                ("− Dotations amort. (68)",   kpi["dotations"],    "−"),
+                ("− Charges financières (66/67)", kpi["charges_fin"], "−"),
+                ("− Impôt sur les sociétés (69)", kpi["is_"],      "−"),
+            ]
+            total = kpi["resultat"]
+        else:  # bfr
+            st.markdown('<div class="panel-title">⚖️ BFR — Besoin en Fonds de Roulement — Détail du calcul</div>', unsafe_allow_html=True)
+            rows = [
+                ("Stocks (31/32/33)",         kpi["stocks"],       "+"),
+                ("+ Créances clients (411)",  kpi["creances"],     "+"),
+                ("− Dettes fournisseurs (401)", kpi["dettes_f"],   "−"),
+            ]
+            total = kpi["bfr"]
+
+        # Tableau du calcul
+        df_calc = pd.DataFrame([{
+            "Poste": r[0],
+            "Montant": fmt(r[1], k=False),
+            "Annualisé": fmt(annualiser(r[1], annee), k=False) if mois != 12 else "",
+            "Opération": r[2]
+        } for r in rows])
+        if mois == 12:
+            df_calc = df_calc.drop(columns=["Annualisé"])
+        st.dataframe(df_calc, use_container_width=True, hide_index=True)
+
+        # Résultat final
+        vann = annualiser(total, annee)
+        ann_str = f" · Annualisé : **{fmt(vann)}**" if mois != 12 else ""
+        st.markdown(f"""
+        <div style="background:#f0f7ff;border-radius:8px;padding:12px 16px;margin-top:8px;
+            font-size:15px;font-weight:700;color:#1a2332">
+            = {fmt(total, k=False)}{ann_str.replace('**','').replace('·','·')}
+            {"&nbsp;&nbsp;<span style='font-size:12px;color:#888'>Annualisé : " + fmt(vann) + "</span>" if mois != 12 else ""}
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+        if st.button("✕ Fermer", key="close_agg"):
+            st.session_state["panel_ouvert"] = None
+            st.rerun()
 
     # ── Objectifs — jauges verticales ───────────────────
     st.markdown('<div class="section-title">Suivi des objectifs</div>',unsafe_allow_html=True)
