@@ -621,67 +621,78 @@ with tabs[0]:
     st.markdown('<div class="section-title">KPI essentiels — cliquer pour le détail des comptes</div>',
                 unsafe_allow_html=True)
 
-    # Définition des 7 KPI avec icône, label, valeur, couleur, prefixe detail
+    # Définition des 7 KPI : (key, icone, label, valeur_reelle, valeur_n1, inv, couleur, sub, pref_detail)
     kpi_defs = [
-        ("ca",    "💰", "CA réel",          kpi["ca"],       kpi_c.get("ca")       if kpi_c else None, False, C["bleu"],   f"Ann. : {fmt(ca_ann)}" if mois!=12 else "", "70"),
-        ("marge", "📊", "Marge brute",       kpi["marge"],    kpi_c.get("marge")    if kpi_c else None, False, C["vert"],   fmt_pct(kpi["taux_marge"]),                  "60"),
-        ("ebe",   "⚙️", "EBE",               kpi["ebe"],      kpi_c.get("ebe")      if kpi_c else None, False, C["orange"], fmt_pct(kpi["taux_ebe"]),                    None),
-        ("res",   "📈", "Résultat net",       kpi["resultat"], kpi_c.get("resultat") if kpi_c else None, False, C["violet"], fmt_pct(kpi["taux_rent"]),                   None),
-        ("treso", "🏦", "Trésorerie",         kpi["treso"],    kpi_c.get("treso")    if kpi_c else None, False, C["vert"],   "",                                          "512"),
-        ("crean", "🧾", "Créances clients",   kpi["creances"], kpi_c.get("creances") if kpi_c else None, True,  C["orange"], f"DSO : {kpi['dso']:.0f}j",                  "411"),
-        ("bfr",   "⚖️", "BFR",               kpi["bfr"],      kpi_c.get("bfr")      if kpi_c else None, True,  C["rouge"],  f"{kpi['bfr_jours']:.0f} jours",             None),
+        ("ca",    "💰", "CA réel",         kpi["ca"],       kpi_c.get("ca")       if kpi_c else None, False, C["bleu"],   "", "70"),
+        ("marge", "📊", "Marge brute",      kpi["marge"],    kpi_c.get("marge")    if kpi_c else None, False, C["vert"],   fmt_pct(kpi["taux_marge"]), "60"),
+        ("ebe",   "⚙️", "EBE",              kpi["ebe"],      kpi_c.get("ebe")      if kpi_c else None, False, C["orange"], fmt_pct(kpi["taux_ebe"]),   None),
+        ("res",   "📈", "Résultat net",      kpi["resultat"], kpi_c.get("resultat") if kpi_c else None, False, C["violet"], fmt_pct(kpi["taux_rent"]),  None),
+        ("treso", "🏦", "Trésorerie",        kpi["treso"],    kpi_c.get("treso")    if kpi_c else None, False, C["vert"],   "", "512"),
+        ("crean", "🧾", "Créances clients",  kpi["creances"], kpi_c.get("creances") if kpi_c else None, True,  C["orange"], f"DSO : {kpi['dso']:.0f}j", "411"),
+        ("bfr",   "⚖️", "BFR",              kpi["bfr"],      kpi_c.get("bfr")      if kpi_c else None, True,  C["rouge"],  f"{kpi['bfr_jours']:.0f}j", None),
     ]
 
-    cols=st.columns(7)
-    for col,(key,icone,lbl,vn,vc,inv,couleur,sub,pref) in zip(cols,kpi_defs):
+    cols = st.columns(7)
+    for col, (key, icone, lbl, vn, vc, inv, couleur, sub, pref) in zip(cols, kpi_defs):
         with col:
-            vn_ann=annualiser(vn,annee)
-            d=delta_html(vn_ann,vc,inv) if vc else ""
+            # Valeur annualisée (×12/15 pour 2025, sinon identique)
+            vn_ann = annualiser(vn, annee)
+            d = delta_html(vn_ann, vc, inv) if vc else ""
+            actif = st.session_state.get("panel_ouvert") == key
 
-            actif = st.session_state.get("panel_ouvert")==key
-            top_border = f"border-top: 4px solid {couleur} !important;"
-            active_style = f"border: 2px solid {couleur} !important; box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important;" if actif else top_border
+            # Ligne "Ann." toujours présente si exercice non standard
+            ann_line = f'<div style="font-size:10px;color:#adb5bd">Réel&nbsp;: {fmt(vn)}</div>' if mois != 12 else ""
+            sub_line = f'<div style="font-size:10px;color:#adb5bd">{sub}</div>' if sub else ""
+            outline = f"outline:3px solid {couleur};" if actif else ""
 
-            # Ligne 1 : icône + label
-            # Ligne 2 : valeur
-            # Ligne 3 : delta
-            # Ligne 4 : sous-titre
-            # Valeur à afficher : annualisée si 2025
-            val_affichee = fmt(vn_ann)
-            ann_txt = f"Réel : {fmt(vn)}" if mois != 12 else (sub if sub else "")
-            sub_txt = sub if mois == 12 else (sub if sub else "")
-
-            # HTML de la carte
-            actif_outline = f"outline:3px solid {couleur};" if actif else ""
+            # Carte HTML — hauteur fixe 180px, icône centré
             st.markdown(f"""
-            <div style="background:white;border-radius:12px;padding:14px 16px;
-                border:1px solid #e8ecf0;{actif_outline}border-top:4px solid {couleur};
-                box-shadow:0 1px 4px rgba(0,0,0,0.05);margin-bottom:2px;
-                min-height:160px;">
-                <div style="font-size:20px;line-height:1">{icone}</div>
-                <div style="font-size:10px;font-weight:600;text-transform:uppercase;
-                    letter-spacing:.06em;color:#8896a5;margin-top:3px;min-height:28px">{lbl}</div>
-                <div style="font-size:28px;font-weight:900;color:#1a2332;
-                    line-height:1.1;margin-top:4px">{val_affichee}</div>
-                <div style="font-size:11px;color:#adb5bd;margin-top:1px">{ann_txt}</div>
-                <div style="font-size:11px;margin-top:2px">{d}</div>
-                <div style="font-size:11px;color:#adb5bd">{sub_txt}</div>
-            </div>
-            """, unsafe_allow_html=True)
+<div id="card_{key}" style="
+    background:white;border-radius:12px;padding:14px 12px;
+    border-top:4px solid {couleur};border:1px solid #e8ecf0;
+    {outline}
+    box-shadow:{'0 4px 16px rgba(0,0,0,0.15)' if actif else '0 1px 4px rgba(0,0,0,0.05)'};
+    height:185px;box-sizing:border-box;
+    display:flex;flex-direction:column;justify-content:flex-start;
+    overflow:hidden;">
+  <div style="text-align:center;font-size:22px;line-height:1.2">{icone}</div>
+  <div style="text-align:center;font-size:10px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.05em;color:#8896a5;margin-top:3px;min-height:26px;
+    line-height:1.3">{lbl}</div>
+  <div style="font-size:26px;font-weight:900;color:#1a2332;
+    line-height:1.1;margin-top:4px">{fmt(vn_ann)}</div>
+  {ann_line}
+  <div style="font-size:11px;margin-top:2px">{d}</div>
+  {sub_line}
+</div>
+""", unsafe_allow_html=True)
 
-            if st.button("​", key=f"btn_{key}", use_container_width=True,
-                         help=f"Détail {lbl}"):
+            # Bouton Streamlit réel — rendu invisible par CSS, couvre la carte
+            if st.button(f"{lbl}", key=f"btn_{key}", use_container_width=True,
+                         help=f"Voir le détail de {lbl}"):
                 st.session_state["panel_ouvert"] = None if actif else key
                 st.rerun()
-            # Bouton invisible superposé sur la carte
-            st.markdown("""<style>
-            button[kind="secondary"] {
-                margin-top:-164px!important;height:164px!important;
-                opacity:0!important;cursor:pointer!important;
-                position:relative!important;z-index:10!important;
-                display:block!important;
-            }
-            </style>""", unsafe_allow_html=True)
+
+    # CSS global appliqué une seule fois pour masquer et superposer les boutons
+    st.markdown("""
+<style>
+/* Masquer le texte des boutons KPI et les superposer sur les cartes */
+div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
+    opacity: 0 !important;
+    height: 189px !important;
+    min-height: 189px !important;
+    margin-top: -193px !important;
+    cursor: pointer !important;
+    position: relative !important;
+    z-index: 100 !important;
+    width: 100% !important;
+    display: block !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
     # Panneau pleine largeur
     panel=st.session_state.get("panel_ouvert")
