@@ -727,26 +727,41 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
     }
     if panel in pref_map:
         if panel == "treso":
-            # Trésorerie : afficher solde net par banque
-            st.markdown('<div class="panel"><div class="panel-title">🏦 Trésorerie — Solde par banque</div>', unsafe_allow_html=True)
+            # Trésorerie : afficher solde net par banque avec comparatif N-1
+            st.markdown('<div class="panel"><div class="panel-title">🏦 Trésorerie — Solde par banque N vs N-1</div>', unsafe_allow_html=True)
+            detail_c = kpi_c["detail"].get("512", {}) if kpi_c else {}
             rows = []
             for num, c in sorted(kpi["detail"].get("512", {}).items()):
                 solde = c.get("solde_net", c["debit"] - c["credit"])
                 if abs(solde) > 0:
-                    rows.append({
+                    # Solde N-1
+                    c_n1 = detail_c.get(num, {})
+                    solde_n1 = c_n1.get("solde_net", c_n1.get("debit",0) - c_n1.get("credit",0)) if c_n1 else None
+                    var = ""
+                    if solde_n1 is not None and solde_n1 != 0:
+                        p = (solde - solde_n1) / abs(solde_n1) * 100
+                        var = f"{'🟢 +' if p>0 else '🔴 '}{fmt_pct(abs(p))}"
+                    row = {
                         "Compte": num,
-                        "Banque": c["intitule"][:40],
-                        "Solde net": fmt(solde, k=False),
-                        "Statut": "✅ Créditeur" if solde > 0 else "🔴 Découvert"
-                    })
+                        "Banque": c["intitule"][:35],
+                        f"Solde Ex.{annee}": fmt(solde, k=False),
+                        f"Solde Ex.{annee_c}": fmt(solde_n1, k=False) if solde_n1 is not None else "—",
+                        "Variation": var,
+                        "Statut": "✅" if solde > 0 else "🔴 Découvert"
+                    }
+                    rows.append(row)
             if rows:
                 st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-            treso_totale = sum(c.get("solde_net", c["debit"]-c["credit"])
-                               for n,c in kpi["detail"].get("512",{}).items())
+            treso_n  = kpi["treso"]
+            treso_n1 = kpi_c["treso"] if kpi_c else None
+            var_total = ""
+            if treso_n1:
+                p = (treso_n - treso_n1) / abs(treso_n1) * 100
+                var_total = f" &nbsp;{'🟢' if p>0 else '🔴'} {'+'if p>0 else ''}{fmt_pct(p)} vs Ex.{annee_c} ({fmt(treso_n1)})"
             st.markdown(
                 f'<div style="background:#f0fff4;border-radius:8px;padding:12px 16px;'
                 f'margin-top:8px;font-size:15px;font-weight:700;color:#1a2332">'
-                f'Total trésorerie : {fmt(treso_totale, k=False)}</div>',
+                f'Total Ex.{annee} : {fmt(treso_n, k=False)}{var_total}</div>',
                 unsafe_allow_html=True
             )
             st.markdown('</div>', unsafe_allow_html=True)
