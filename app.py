@@ -45,6 +45,18 @@ st.markdown("""
     box-shadow:0 8px 32px rgba(55,138,221,0.15);margin:12px 0 20px}
 .panel-title{font-size:15px;font-weight:600;color:#1a2332;margin-bottom:16px;
     padding-bottom:8px;border-bottom:2px solid #e8ecf0}
+/* Bouton invisible sous les KPI */
+div[data-testid="stButton"] > button[kind="secondary"] {
+    background: transparent !important;
+    border: none !important;
+    color: transparent !important;
+    height: 4px !important;
+    min-height: 4px !important;
+    padding: 0 !important;
+    margin-top: -8px !important;
+    cursor: pointer !important;
+    width: 100% !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -107,21 +119,23 @@ def jauge(val, min_v, max_v, titre, unite="%", couleur=None, val_comp=None,
         mieux = val > val_comp if mieux_si_haut else val < val_comp
         couleur_val = "#1D9E75" if mieux else "#D85A30"
         coul_comp = "#1D9E75" if mieux else "#D85A30"
-        comp_txt = f"<b><span style=\'font-size:11px;color:{coul_comp}\'>N-1 : {val_comp:.1f}{unite}</span></b>"
+        comp_str = f"N-1 : {val_comp:.1f}{unite}"
     else:
         mieux = True
         couleur_val = "#1D9E75"
-        comp_txt = ""
+        comp_str = ""
+        coul_comp = "#888"
     if couleur is None:
         couleur = couleur_val
     if seuils is None: seuils = [0.4, 0.7]
     s0, s1 = seuils
 
-    # Sous-titre avec N-1
-    titre_complet = f"{comp_txt}<br>{titre}" if comp_txt else titre
-
-    # Valeur en k€ sous le %
-    val_eur_txt = f"<br><span style=\'font-size:12px;color:#555\'>{val_eur}</span>" if val_eur else ""
+    # Titre en noir fixe + valeur k€ + N-1 EN DESSOUS du k€
+    sous_titre = ""
+    if val_eur:
+        sous_titre += f"<span style=\'font-size:12px;color:#333\'>{val_eur}</span>"
+    if comp_str:
+        sous_titre += f"<br><b><span style=\'font-size:11px;color:{coul_comp}\'>{comp_str}</span></b>"
 
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
@@ -131,7 +145,10 @@ def jauge(val, min_v, max_v, titre, unite="%", couleur=None, val_comp=None,
             "font": {"size": 28, "color": couleur_val},
             "valueformat": ".1f",
         },
-        title={"text": titre_complet + val_eur_txt, "font": {"size": 11}},
+        title={
+            "text": f"<span style=\'color:#1a2332;font-weight:600\'>{titre}</span><br>{sous_titre}",
+            "font": {"size": 11},
+        },
         gauge={
             "axis": {"range": [min_v, max_v], "tickwidth": 1, "tickcolor": "#ddd",
                      "tickfont": {"size": 9}},
@@ -145,35 +162,69 @@ def jauge(val, min_v, max_v, titre, unite="%", couleur=None, val_comp=None,
             "threshold": {"line": {"color": couleur, "width": 4}, "thickness": 0.8, "value": val}
         }
     ))
-    fig.update_layout(height=210, margin=dict(t=45, b=0, l=10, r=10),
-                      paper_bgcolor="rgba(0,0,0,0)")
+    # Hauteur fixe + domain pour aligner les pieds des jauges
+    fig.update_layout(
+        height=240,
+        margin=dict(t=10, b=10, l=10, r=10),
+        paper_bgcolor="rgba(0,0,0,0)",
+    )
+    fig.update_traces(domain={"x": [0, 1], "y": [0, 0.72]})
     return fig
 
-def jauge_verticale(pct, label, valeur):
-    """Jauge verticale style thermomètre pour les objectifs"""
+def jauge_verticale(pct, label, valeur_str, valeur_keur):
+    """Thermomètre vertical avec graduation % et valeur k€"""
     pct_c = min(pct, 100)
-    if pct < 50:   couleur, bg = "#D85A30", "#FFEAEA"
-    elif pct < 80: couleur, bg = "#BA7517", "#FFF3CD"
-    else:           couleur, bg = "#1D9E75", "#D4EDDA"
-    fig = go.Figure(go.Bar(
-        x=[""],
-        y=[pct_c],
-        marker_color=couleur,
-        width=0.5,
-        text=[f"{pct:.0f}%"],
-        textposition="outside",
-        textfont=dict(size=14, color=couleur),
+    if pct < 50:   couleur, bg = "#D85A30", "#FFF5F5"
+    elif pct < 80: couleur, bg = "#BA7517", "#FFFBEB"
+    else:           couleur, bg = "#1D9E75", "#F0FFF4"
+
+    fig = go.Figure()
+
+    # Fond gris (100%)
+    fig.add_trace(go.Bar(
+        x=[""], y=[100],
+        marker_color="#E8ECF0", width=0.35,
+        showlegend=False, hoverinfo="skip"
     ))
-    fig.add_hline(y=100, line_color="#888", line_dash="dash", line_width=1)
+    # Remplissage coloré
+    fig.add_trace(go.Bar(
+        x=[""], y=[pct_c],
+        marker_color=couleur, width=0.35,
+        showlegend=False,
+        text=[f"<b>{pct:.0f}%</b>"],
+        textposition="outside",
+        textfont=dict(size=15, color=couleur),
+    ))
+    # Ligne objectif 100%
+    fig.add_hline(y=100, line_color="#555", line_dash="dot", line_width=1.5)
+
     fig.update_layout(
         height=220,
-        margin=dict(t=30,b=0,l=0,r=0),
+        margin=dict(t=10, b=0, l=30, r=10),
         plot_bgcolor=bg,
         paper_bgcolor="rgba(0,0,0,0)",
-        yaxis=dict(range=[0,115], showgrid=False, showticklabels=False),
+        barmode="overlay",
+        yaxis=dict(
+            range=[0, 120],
+            tickvals=[0, 25, 50, 75, 100],
+            ticktext=["0%", "25%", "50%", "75%", "100%"],
+            tickfont=dict(size=9, color="#888"),
+            gridcolor="#e8ecf0", gridwidth=1,
+            showgrid=True, zeroline=False,
+        ),
         xaxis=dict(showticklabels=False),
-        title=dict(text=f"<b>{label}</b><br><span style='font-size:11px;color:#888'>{valeur}</span>",
-                   font=dict(size=12), x=0.5)
+        title=dict(
+            text=f"<b style='color:#1a2332'>{label}</b><br>"
+                 f"<span style='font-size:12px;font-weight:700;color:{couleur}'>{valeur_keur}</span>",
+            font=dict(size=12), x=0.5, xanchor="center"
+        ),
+        annotations=[dict(
+            x=0, y=pct_c+3,
+            text=f"<b>{pct:.0f}%</b>",
+            showarrow=False,
+            font=dict(size=14, color=couleur),
+            xanchor="center"
+        )]
     )
     return fig
 
@@ -540,9 +591,10 @@ with tabs[0]:
         with col:
             vn_ann=annualiser(vn,annee)
             d=delta_html(vn_ann,vc,inv) if vc else ""
-            actif = "active" if st.session_state.get("panel_ouvert")==key else ""
+            actif = st.session_state.get("panel_ouvert")==key
+            border_style = f"border:2px solid {couleur};box-shadow:0 4px 16px rgba(0,0,0,0.15);" if actif else f"border-top:4px solid {couleur};"
             st.markdown(f"""
-            <div class="kpi-card {actif}" style="border-top:4px solid {couleur}">
+            <div class="kpi-card" style="{border_style}">
                 <div>
                     <div class="kpi-icon">{icone}</div>
                     <div class="kpi-label">{lbl}</div>
@@ -551,12 +603,13 @@ with tabs[0]:
                 <div>
                     <div class="kpi-delta">{d}</div>
                     <div class="kpi-sub">{sub}</div>
+                    <div class="kpi-hint">{'🔵 Détail ouvert' if actif else '🔍 Cliquer pour le détail'}</div>
                 </div>
             </div>
             """,unsafe_allow_html=True)
-            if st.button("🔍",key=f"btn_{key}",use_container_width=True,
-                         help=f"Voir le détail de {lbl}"):
-                st.session_state["panel_ouvert"] = None if st.session_state.get("panel_ouvert")==key else key
+            if st.button("​",key=f"btn_{key}",use_container_width=True,
+                         help=f"Détail {lbl}"):
+                st.session_state["panel_ouvert"] = None if actif else key
                 st.rerun()
 
     # Panneau pleine largeur
@@ -589,9 +642,13 @@ with tabs[0]:
     for col,lbl,reel,cible,inv in objectifs:
         with col:
             pct=reel/cible*100 if cible>0 else 0
-            if inv: pct=max(0,200-pct) if pct>100 else 100-pct+100  # BFR : mieux si en dessous
+            if inv:
+                # BFR : mieux si en dessous de l'objectif
+                pct = max(0, 200 - pct) if pct > 100 else 100
             pct=max(0,min(pct,150))
-            fig=jauge_verticale(pct,lbl,f"{fmt(reel)} / obj. {fmt(cible)}")
+            valeur_keur = fmt(reel)
+            valeur_str = f"{fmt(reel)} / obj. {fmt(cible)}"
+            fig=jauge_verticale(pct, lbl, valeur_str, valeur_keur)
             st.plotly_chart(fig,use_container_width=True,config=CFG)
 
     # ── Alertes impayés ──────────────────────────────────
@@ -838,3 +895,4 @@ with tabs[4]:
         BFR = Stocks + Créances − Dettes fourn. &nbsp;|&nbsp;
         DSO = Créances × 365 / CA
     </div>""",unsafe_allow_html=True)
+    
