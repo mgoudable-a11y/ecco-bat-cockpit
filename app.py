@@ -304,9 +304,20 @@ def lire_balance(annee):
             totaux[num]={"intitule":intitule,"debit":montants[0],
                          "credit":montants[1] if len(montants)>1 else 0,"solde":montants[-1]}
         elif len(num)==6 and len(montants)>=2:
+            if len(montants) == 3:
+                # Balance avec 3 colonnes : [debit_mvt, credit_mvt, solde_net]
+                # Cas typique des comptes 512 (banques)
+                solde = montants[2]
+                sd_val = max(solde, 0)   # solde positif = débiteur (argent en banque)
+                sc_val = max(-solde, 0)  # solde négatif = créditeur (découvert)
+            elif len(montants) >= 4:
+                sd_val = max(montants[2], 0)
+                sc_val = max(montants[3], 0)
+            else:
+                sd_val, sc_val = 0, 0
             comptes[num]={"intitule":intitule,"debit":montants[0],"credit":montants[1],
-                          "sd":max(montants[2],0) if len(montants)>2 else 0,
-                          "sc":max(montants[3],0) if len(montants)>3 else 0}
+                          "sd": sd_val, "sc": sc_val,
+                          "solde_net": montants[-1]}
     return comptes,totaux
 
 @st.cache_data
@@ -424,8 +435,21 @@ def calculer_kpi(comptes,totaux):
     ebe=ca-achats-charges_pers-services-autres-impots
     rex=ebe-dotations; marge=ca-achats
     stocks=sd("31")+sd("32")+sd("33"); creances=sd("411"); dettes_f=sc("401")
-    treso=max(sum(c["sd"]-c["sc"] for n,c in comptes.items()
-               if n.startswith("512") or n.startswith("531")),0)
+    # Trésorerie = solde net de la classe 5 depuis les totaux
+    # Structure balance 512 : [debit_mvt, credit_mvt, solde_net] (3 colonnes seulement)
+    # Le bon chiffre = total classe 5 ou 51+53 depuis les lignes de totaux
+    treso_c5  = abs(totaux.get("5",  {}).get("solde", 0))
+    treso_c51 = abs(totaux.get("51", {}).get("solde", 0))
+    treso_c53 = abs(totaux.get("53", {}).get("solde", 0))
+    if treso_c5 > 0:
+        treso = treso_c5
+    elif treso_c51 > 0 or treso_c53 > 0:
+        treso = treso_c51 + treso_c53
+    else:
+        # Fallback : dernier montant (solde net) de chaque compte 512/531
+        treso = sum(c["credit"] for n,c in comptes.items()
+                    if (n.startswith("512") or n.startswith("531")) and c["credit"] > c["debit"])
+    treso = max(treso, 0)
     bfr=stocks+creances-dettes_f
     detail={}
     for pref in ["70","60","61","62","63","64","68","69","411","512","401"]:
@@ -702,7 +726,34 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
         "crean":"Comptes clients (411) — Détail des créances",
     }
     if panel in pref_map:
-        if panel == "crean":
+        if panel == "treso":
+            # Trésorerie : afficher solde net par banque
+            st.markdown('<div class="panel"><div class="panel-title">🏦 Trésorerie — Solde par banque</div>', unsafe_allow_html=True)
+            rows = []
+            for num, c in sorted(kpi["detail"].get("512", {}).items()):
+                solde = c.get("solde_net", c["debit"] - c["credit"])
+                if abs(solde) > 0:
+                    rows.append({
+                        "Compte": num,
+                        "Banque": c["intitule"][:40],
+                        "Solde net": fmt(solde, k=False),
+                        "Statut": "✅ Créditeur" if solde > 0 else "🔴 Découvert"
+                    })
+            if rows:
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            treso_totale = sum(c.get("solde_net", c["debit"]-c["credit"])
+                               for n,c in kpi["detail"].get("512",{}).items())
+            st.markdown(
+                f'<div style="background:#f0fff4;border-radius:8px;padding:12px 16px;'
+                f'margin-top:8px;font-size:15px;font-weight:700;color:#1a2332">'
+                f'Total trésorerie : {fmt(treso_totale, k=False)}</div>',
+                unsafe_allow_html=True
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+            if st.button("✕ Fermer", key="close_treso"):
+                st.session_state["panel_ouvert"] = None
+                st.rerun()
+        elif panel == "crean":
             # Créances : afficher les comptes + clients qui n'ont pas payé
             st.markdown('<div class="panel"><div class="panel-title">🧾 Créances clients — Comptes 411 + Impayés</div>', unsafe_allow_html=True)
             c1, c2 = st.columns([1, 1])
