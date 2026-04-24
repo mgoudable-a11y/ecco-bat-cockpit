@@ -34,6 +34,28 @@ st.markdown("""
 .kpi-value{font-size:22px;font-weight:700;color:#1a2332;line-height:1.1}
 .kpi-delta{font-size:11px;margin-top:2px}
 .kpi-sub{font-size:11px;color:#adb5bd}
+/* Boutons KPI stylisés comme des cartes */
+div[data-testid="stButton"].kpi-btn > button {
+    background: white !important;
+    border-radius: 12px !important;
+    padding: 14px 16px !important;
+    border: 1px solid #e8ecf0 !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+    height: 150px !important;
+    min-height: 150px !important;
+    width: 100% !important;
+    text-align: left !important;
+    white-space: pre-wrap !important;
+    color: #1a2332 !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    transition: all 0.2s !important;
+    cursor: pointer !important;
+}
+div[data-testid="stButton"].kpi-btn > button:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+    transform: translateY(-2px) !important;
+}
 .section-title{font-size:11px;font-weight:700;text-transform:uppercase;
     letter-spacing:.1em;color:#8896a5;margin:24px 0 12px;
     padding-bottom:8px;border-bottom:2px solid #e8ecf0}
@@ -56,16 +78,27 @@ st.markdown("""
     width: 100%;
     height: 100%;
 }
-div[data-testid="stButton"] button {
-    background: transparent !important;
-    border: none !important;
-    color: transparent !important;
-    height: 2px !important;
-    min-height: 2px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    box-shadow: none !important;
-    font-size: 1px !important;
+/* Boutons KPI stylisés comme des cartes */
+div[data-testid="stButton"] button[kind="secondary"] {
+    background: white !important;
+    border-radius: 12px !important;
+    padding: 16px 14px !important;
+    border: 1px solid #e8ecf0 !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+    height: 150px !important;
+    min-height: 150px !important;
+    width: 100% !important;
+    text-align: left !important;
+    white-space: pre-wrap !important;
+    line-height: 1.4 !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+    color: #1a2332 !important;
+    font-family: inherit !important;
+}
+div[data-testid="stButton"] button[kind="secondary"]:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+    transform: translateY(-2px) !important;
 }
 .kpi-hint { display: none !important; }
 </style>
@@ -605,17 +638,26 @@ with tabs[0]:
             vn_ann=annualiser(vn,annee)
             d=delta_html(vn_ann,vc,inv) if vc else ""
             actif = st.session_state.get("panel_ouvert")==key
-            border_style = f"border:2px solid {couleur};box-shadow:0 4px 16px rgba(0,0,0,0.15);" if actif else f"border-top:4px solid {couleur};"
-            st.markdown(f"""
-            <div class="kpi-card" style="{border_style}">
-                <div class="kpi-icon">{icone}</div>
-                <div class="kpi-label">{lbl}</div>
-                <div class="kpi-value">{fmt(vn)}</div>
-                <div class="kpi-delta">{d}</div>
-                <div class="kpi-sub">{sub}</div>
-            </div>
-            """,unsafe_allow_html=True)
-            if st.button(" ",key=f"btn_{key}",use_container_width=True):
+            top_border = f"border-top: 4px solid {couleur} !important;"
+            active_style = f"border: 2px solid {couleur} !important; box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important;" if actif else top_border
+
+            # Ligne 1 : icône + label
+            # Ligne 2 : valeur
+            # Ligne 3 : delta
+            # Ligne 4 : sous-titre
+            delta_txt = d.replace('<span class="dp">', '').replace('<span class="dn">', '').replace('</span>', '') if d else ""
+            label_txt = f"{icone}  {lbl}"
+            btn_label = f"{label_txt}\n{fmt(vn)}\n{delta_txt}\n{sub}" if sub else f"{label_txt}\n{fmt(vn)}\n{delta_txt}"
+
+            # Injecter le style de bordure via CSS ciblé
+            st.markdown(f"""<style>
+            div[data-testid="stButton"]:has(button[data-testid="baseButton-secondary"][aria-label="{key}"]) button {{
+                {active_style}
+            }}
+            </style>""", unsafe_allow_html=True)
+
+            if st.button(btn_label, key=f"btn_{key}", use_container_width=True,
+                         type="secondary", help=f"Détail {lbl}"):
                 st.session_state["panel_ouvert"] = None if actif else key
                 st.rerun()
 
