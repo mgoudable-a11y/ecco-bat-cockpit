@@ -102,30 +102,51 @@ def norm_fourn(nom):
     return re.sub(r'\s+-\s+\d+.*$','',n).strip()[:30]
 
 def jauge(val, min_v, max_v, titre, unite="%", couleur=None, val_comp=None,
-          seuils=None, mieux_si_haut=True):
-    if couleur is None:
-        p=(val-min_v)/max(max_v-min_v,1)
-        couleur=C["vert"] if p>0.6 else (C["orange"] if p>0.3 else C["rouge"])
-    if seuils is None: seuils=[0.4,0.7]
-    s0,s1=seuils
+          seuils=None, mieux_si_haut=True, val_eur=None):
     if val_comp is not None:
-        mieux = val>val_comp if mieux_si_haut else val<val_comp
+        mieux = val > val_comp if mieux_si_haut else val < val_comp
+        couleur_val = "#1D9E75" if mieux else "#D85A30"
         coul_comp = "#1D9E75" if mieux else "#D85A30"
-        comp_txt = f"<br><b><span style='font-size:11px;color:{coul_comp}'>N-1 : {val_comp:.1f}{unite}</span></b>"
+        comp_txt = f"<b><span style=\'font-size:11px;color:{coul_comp}\'>N-1 : {val_comp:.1f}{unite}</span></b>"
     else:
+        mieux = True
+        couleur_val = "#1D9E75"
         comp_txt = ""
-    fig=go.Figure(go.Indicator(
-        mode="gauge+number",value=round(val,1),
-        number={"suffix":unite,"font":{"size":22}},
-        title={"text":titre+comp_txt,"font":{"size":11}},
-        gauge={"axis":{"range":[min_v,max_v],"tickwidth":1,"tickcolor":"#ddd"},
-               "bar":{"color":couleur,"thickness":0.3},"bgcolor":"white","borderwidth":0,
-               "steps":[{"range":[min_v,min_v+(max_v-min_v)*s0],"color":"#FFEAEA"},
-                        {"range":[min_v+(max_v-min_v)*s0,min_v+(max_v-min_v)*s1],"color":"#FFF3CD"},
-                        {"range":[min_v+(max_v-min_v)*s1,max_v],"color":"#D4EDDA"}],
-               "threshold":{"line":{"color":couleur,"width":3},"thickness":0.75,"value":val}}
+    if couleur is None:
+        couleur = couleur_val
+    if seuils is None: seuils = [0.4, 0.7]
+    s0, s1 = seuils
+
+    # Sous-titre avec N-1
+    titre_complet = f"{comp_txt}<br>{titre}" if comp_txt else titre
+
+    # Valeur en k€ sous le %
+    val_eur_txt = f"<br><span style=\'font-size:12px;color:#555\'>{val_eur}</span>" if val_eur else ""
+
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=round(val, 1),
+        number={
+            "suffix": unite,
+            "font": {"size": 28, "color": couleur_val},
+            "valueformat": ".1f",
+        },
+        title={"text": titre_complet + val_eur_txt, "font": {"size": 11}},
+        gauge={
+            "axis": {"range": [min_v, max_v], "tickwidth": 1, "tickcolor": "#ddd",
+                     "tickfont": {"size": 9}},
+            "bar": {"color": couleur, "thickness": 0.35},
+            "bgcolor": "white", "borderwidth": 0,
+            "steps": [
+                {"range": [min_v, min_v + (max_v - min_v) * s0], "color": "#FFEAEA"},
+                {"range": [min_v + (max_v - min_v) * s0, min_v + (max_v - min_v) * s1], "color": "#FFF3CD"},
+                {"range": [min_v + (max_v - min_v) * s1, max_v], "color": "#D4EDDA"},
+            ],
+            "threshold": {"line": {"color": couleur, "width": 4}, "thickness": 0.8, "value": val}
+        }
     ))
-    fig.update_layout(height=200,margin=dict(t=40,b=0,l=10,r=10),paper_bgcolor="rgba(0,0,0,0)")
+    fig.update_layout(height=210, margin=dict(t=45, b=0, l=10, r=10),
+                      paper_bgcolor="rgba(0,0,0,0)")
     return fig
 
 def jauge_verticale(pct, label, valeur):
@@ -473,43 +494,31 @@ with tabs[0]:
     st.markdown('<div class="section-title">Jauges de santé</div>',unsafe_allow_html=True)
     c1,c2,c3,c4,c5=st.columns(5)
     with c1: st.plotly_chart(jauge(kpi["taux_marge"],0,100,"Taux de marge",seuils=s_mg,
-        val_comp=kpi_c.get("taux_marge") if kpi_c else None,mieux_si_haut=True),
+        val_comp=kpi_c.get("taux_marge") if kpi_c else None,mieux_si_haut=True,
+        val_eur=fmt(kpi["marge"])),
         use_container_width=True,config=CFG)
     with c2: st.plotly_chart(jauge(kpi["taux_rent"],0,30,"Rentabilité nette",seuils=s_rt,
-        val_comp=kpi_c.get("taux_rent") if kpi_c else None,mieux_si_haut=True),
+        val_comp=kpi_c.get("taux_rent") if kpi_c else None,mieux_si_haut=True,
+        val_eur=fmt(kpi["resultat"])),
         use_container_width=True,config=CFG)
     with c3: st.plotly_chart(jauge(kpi["taux_ebe"],0,40,"EBE / CA",seuils=s_ebe,
-        val_comp=kpi_c.get("taux_ebe") if kpi_c else None,mieux_si_haut=True),
+        val_comp=kpi_c.get("taux_ebe") if kpi_c else None,mieux_si_haut=True,
+        val_eur=fmt(kpi["ebe"])),
         use_container_width=True,config=CFG)
     with c4: st.plotly_chart(jauge(min(kpi["couverture"],12),0,12,"Tréso (mois charges)",
         unite=" mois",seuils=[0.25,0.5],mieux_si_haut=True,
-        val_comp=min(kpi_c.get("couverture",12),12) if kpi_c else None),
+        val_comp=min(kpi_c.get("couverture",12),12) if kpi_c else None,
+        val_eur=fmt(kpi["treso"])),
         use_container_width=True,config=CFG)
     with c5:
         bfj=kpi["bfr_jours"]
         st.plotly_chart(jauge(bfj,0,90,"BFR en jours",unite="j",
             couleur=C["vert"] if bfj<60 else C["rouge"],seuils=[0.67,0.33],mieux_si_haut=False,
-            val_comp=kpi_c.get("bfr_jours") if kpi_c else None),
+            val_comp=kpi_c.get("bfr_jours") if kpi_c else None,
+            val_eur=fmt(kpi["bfr"])),
             use_container_width=True,config=CFG)
 
-    # Valeurs en k€ sous les jauges
-    c1,c2,c3,c4,c5=st.columns(5)
-    for col,(val,ref,inv) in zip([c1,c2,c3,c4,c5],[
-        (kpi["marge"],  kpi_c.get("marge")  if kpi_c else None, False),
-        (kpi["resultat"],kpi_c.get("resultat") if kpi_c else None,False),
-        (kpi["ebe"],    kpi_c.get("ebe")    if kpi_c else None, False),
-        (kpi["treso"],  kpi_c.get("treso")  if kpi_c else None, False),
-        (kpi["bfr"],    kpi_c.get("bfr")    if kpi_c else None, True),
-    ]):
-        vann=annualiser(val,annee)
-        if ref:
-            mieux=vann>ref if not inv else vann<ref
-            coul=C["vert"] if mieux else C["rouge"]
-        else: coul=C["gris"]
-        with col:
-            st.markdown(f'<div style="text-align:center;font-size:13px;font-weight:700;'
-                        f'color:{coul};margin-top:-8px;margin-bottom:12px">{fmt(val)}</div>',
-                        unsafe_allow_html=True)
+
 
     # ── KPI essentiels ──────────────────────────────────
     st.markdown('<div class="section-title">KPI essentiels — cliquer pour le détail des comptes</div>',
