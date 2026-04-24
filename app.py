@@ -46,17 +46,28 @@ st.markdown("""
 .panel-title{font-size:15px;font-weight:600;color:#1a2332;margin-bottom:16px;
     padding-bottom:8px;border-bottom:2px solid #e8ecf0}
 /* Bouton invisible sous les KPI */
-div[data-testid="stButton"] > button[kind="secondary"] {
+.kpi-btn-hidden {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+}
+div[data-testid="stButton"] button {
     background: transparent !important;
     border: none !important;
     color: transparent !important;
-    height: 4px !important;
-    min-height: 4px !important;
+    height: 2px !important;
+    min-height: 2px !important;
     padding: 0 !important;
-    margin-top: -8px !important;
-    cursor: pointer !important;
-    width: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    font-size: 1px !important;
 }
+.kpi-hint { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -183,29 +194,37 @@ def jauge_verticale(pct, label, valeur_str, valeur_keur):
     # Fond gris (100%)
     fig.add_trace(go.Bar(
         x=[""], y=[100],
-        marker_color="#E8ECF0", width=0.35,
+        marker_color="#E8ECF0", width=0.4,
         showlegend=False, hoverinfo="skip"
     ))
-    # Remplissage coloré
+    # Remplissage coloré - sans texte dans la barre
     fig.add_trace(go.Bar(
         x=[""], y=[pct_c],
-        marker_color=couleur, width=0.35,
+        marker_color=couleur, width=0.4,
         showlegend=False,
-        text=[f"<b>{pct:.0f}%</b>"],
-        textposition="outside",
-        textfont=dict(size=15, color=couleur),
+        hovertemplate=f"{label}: {pct:.0f}%<extra></extra>"
     ))
     # Ligne objectif 100%
     fig.add_hline(y=100, line_color="#555", line_dash="dot", line_width=1.5)
 
+    # Annotation % EN DEHORS de la barre, tout en haut
+    y_annot = pct_c + 6 if pct_c < 90 else pct_c - 10
+    fig.add_annotation(
+        x=0, y=y_annot,
+        text=f"<b>{pct:.0f}%</b>",
+        showarrow=False,
+        font=dict(size=16, color=couleur),
+        xanchor="center", yanchor="bottom"
+    )
+
     fig.update_layout(
-        height=220,
-        margin=dict(t=10, b=0, l=30, r=10),
+        height=230,
+        margin=dict(t=55, b=5, l=35, r=10),
         plot_bgcolor=bg,
         paper_bgcolor="rgba(0,0,0,0)",
         barmode="overlay",
         yaxis=dict(
-            range=[0, 120],
+            range=[0, 115],
             tickvals=[0, 25, 50, 75, 100],
             ticktext=["0%", "25%", "50%", "75%", "100%"],
             tickfont=dict(size=9, color="#888"),
@@ -215,16 +234,10 @@ def jauge_verticale(pct, label, valeur_str, valeur_keur):
         xaxis=dict(showticklabels=False),
         title=dict(
             text=f"<b style='color:#1a2332'>{label}</b><br>"
-                 f"<span style='font-size:12px;font-weight:700;color:{couleur}'>{valeur_keur}</span>",
-            font=dict(size=12), x=0.5, xanchor="center"
+                 f"<span style='font-size:13px;font-weight:700;color:{couleur}'>{valeur_keur}</span>",
+            font=dict(size=12), x=0.5, xanchor="center",
+            pad=dict(t=0)
         ),
-        annotations=[dict(
-            x=0, y=pct_c+3,
-            text=f"<b>{pct:.0f}%</b>",
-            showarrow=False,
-            font=dict(size=14, color=couleur),
-            xanchor="center"
-        )]
     )
     return fig
 
@@ -595,20 +608,14 @@ with tabs[0]:
             border_style = f"border:2px solid {couleur};box-shadow:0 4px 16px rgba(0,0,0,0.15);" if actif else f"border-top:4px solid {couleur};"
             st.markdown(f"""
             <div class="kpi-card" style="{border_style}">
-                <div>
-                    <div class="kpi-icon">{icone}</div>
-                    <div class="kpi-label">{lbl}</div>
-                    <div class="kpi-value">{fmt(vn)}</div>
-                </div>
-                <div>
-                    <div class="kpi-delta">{d}</div>
-                    <div class="kpi-sub">{sub}</div>
-                    <div class="kpi-hint">{'🔵 Détail ouvert' if actif else '🔍 Cliquer pour le détail'}</div>
-                </div>
+                <div class="kpi-icon">{icone}</div>
+                <div class="kpi-label">{lbl}</div>
+                <div class="kpi-value">{fmt(vn)}</div>
+                <div class="kpi-delta">{d}</div>
+                <div class="kpi-sub">{sub}</div>
             </div>
             """,unsafe_allow_html=True)
-            if st.button("​",key=f"btn_{key}",use_container_width=True,
-                         help=f"Détail {lbl}"):
+            if st.button(" ",key=f"btn_{key}",use_container_width=True):
                 st.session_state["panel_ouvert"] = None if actif else key
                 st.rerun()
 
@@ -895,4 +902,3 @@ with tabs[4]:
         BFR = Stocks + Créances − Dettes fourn. &nbsp;|&nbsp;
         DSO = Créances × 365 / CA
     </div>""",unsafe_allow_html=True)
-    
