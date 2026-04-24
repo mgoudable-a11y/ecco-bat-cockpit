@@ -470,7 +470,7 @@ def calculer_kpi(comptes,totaux):
             "couverture":treso/(charges_tot/12) if charges_tot>0 else 0,
             "detail":detail}
 
-def panel_detail(titre, comptes_dict, annee, comptes_c_dict=None, couleur=C["bleu"], mode="standard"):
+def panel_detail(titre, comptes_dict, annee, comptes_c_dict=None, couleur=C["bleu"], mode="standard", total_override=None, total_c_override=None):
     mois=EXERCICES.get(annee,{}).get("mois",12)
     st.markdown(f'<div class="panel"><div class="panel-title">📋 {titre}</div>',
                 unsafe_allow_html=True)
