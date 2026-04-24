@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -643,29 +644,26 @@ with tabs[0]:
             # Ligne "Ann." toujours présente si exercice non standard
             ann_line = f'<div style="font-size:10px;color:#adb5bd">Réel&nbsp;: {fmt(vn)}</div>' if mois != 12 else ""
             sub_line = f'<div style="font-size:10px;color:#adb5bd">{sub}</div>' if sub else ""
-            outline = f"outline:3px solid {couleur};" if actif else ""
+            bshadow = "0 4px 16px rgba(0,0,0,0.15)" if actif else "0 1px 4px rgba(0,0,0,0.05)"
+            border_actif = f"border:2px solid {couleur};" if actif else "border:1px solid #e8ecf0;"
 
-            # Carte HTML — hauteur fixe 180px, icône centré
-            st.markdown(f"""
-<div id="card_{key}" style="
-    background:white;border-radius:12px;padding:14px 12px;
-    border-top:4px solid {couleur};border:1px solid #e8ecf0;
-    {outline}
-    box-shadow:{'0 4px 16px rgba(0,0,0,0.15)' if actif else '0 1px 4px rgba(0,0,0,0.05)'};
-    height:185px;box-sizing:border-box;
-    display:flex;flex-direction:column;justify-content:flex-start;
-    overflow:hidden;">
-  <div style="text-align:center;font-size:22px;line-height:1.2">{icone}</div>
-  <div style="text-align:center;font-size:10px;font-weight:600;text-transform:uppercase;
-    letter-spacing:.05em;color:#8896a5;margin-top:3px;min-height:26px;
-    line-height:1.3">{lbl}</div>
-  <div style="font-size:26px;font-weight:900;color:#1a2332;
-    line-height:1.1;margin-top:4px">{fmt(vn_ann)}</div>
-  {ann_line}
-  <div style="font-size:11px;margin-top:2px">{d}</div>
-  {sub_line}
-</div>
-""", unsafe_allow_html=True)
+            carte = (
+                f'<div style="background:white;border-radius:12px;padding:14px 12px;'
+                f'border-top:4px solid {couleur};{border_actif}'
+                f'box-shadow:{bshadow};height:185px;box-sizing:border-box;'
+                f'display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden;">'
+                f'<div style="text-align:center;font-size:22px;line-height:1.2">{icone}</div>'
+                f'<div style="text-align:center;font-size:10px;font-weight:600;'
+                f'text-transform:uppercase;letter-spacing:.05em;color:#8896a5;'
+                f'margin-top:3px;min-height:26px;line-height:1.3">{lbl}</div>'
+                f'<div style="font-size:26px;font-weight:900;color:#1a2332;'
+                f'line-height:1.1;margin-top:4px">{fmt(vn_ann)}</div>'
+                + ann_line
+                + f'<div style="font-size:11px;margin-top:2px">{d}</div>'
+                + sub_line
+                + '</div>'
+            )
+            st.markdown(carte, unsafe_allow_html=True)
 
             # Bouton Streamlit réel — rendu invisible par CSS, couvre la carte
             if st.button(f"{lbl}", key=f"btn_{key}", use_container_width=True,
