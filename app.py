@@ -646,21 +646,42 @@ with tabs[0]:
             # Ligne 2 : valeur
             # Ligne 3 : delta
             # Ligne 4 : sous-titre
-            delta_txt = d.replace('<span class="dp">', '').replace('<span class="dn">', '').replace('</span>', '') if d else ""
-            label_txt = f"{icone}  {lbl}"
-            btn_label = f"{label_txt}\n{fmt(vn)}\n{delta_txt}\n{sub}" if sub else f"{label_txt}\n{fmt(vn)}\n{delta_txt}"
+            # Valeur à afficher : annualisée si 2025
+            val_affichee = fmt(vn_ann)
+            ann_txt = f"Réel : {fmt(vn)}" if mois != 12 else (sub if sub else "")
+            sub_txt = sub if mois == 12 else (sub if sub else "")
 
-            # Injecter le style de bordure via CSS ciblé
-            st.markdown(f"""<style>
-            div[data-testid="stButton"]:has(button[data-testid="baseButton-secondary"][aria-label="{key}"]) button {{
-                {active_style}
-            }}
-            </style>""", unsafe_allow_html=True)
+            # HTML de la carte
+            actif_outline = f"outline:3px solid {couleur};" if actif else ""
+            st.markdown(f"""
+            <div style="background:white;border-radius:12px;padding:14px 16px;
+                border:1px solid #e8ecf0;{actif_outline}border-top:4px solid {couleur};
+                box-shadow:0 1px 4px rgba(0,0,0,0.05);margin-bottom:2px;
+                min-height:160px;">
+                <div style="font-size:20px;line-height:1">{icone}</div>
+                <div style="font-size:10px;font-weight:600;text-transform:uppercase;
+                    letter-spacing:.06em;color:#8896a5;margin-top:3px;min-height:28px">{lbl}</div>
+                <div style="font-size:28px;font-weight:900;color:#1a2332;
+                    line-height:1.1;margin-top:4px">{val_affichee}</div>
+                <div style="font-size:11px;color:#adb5bd;margin-top:1px">{ann_txt}</div>
+                <div style="font-size:11px;margin-top:2px">{d}</div>
+                <div style="font-size:11px;color:#adb5bd">{sub_txt}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-            if st.button(btn_label, key=f"btn_{key}", use_container_width=True,
-                         type="secondary", help=f"Détail {lbl}"):
+            if st.button("​", key=f"btn_{key}", use_container_width=True,
+                         help=f"Détail {lbl}"):
                 st.session_state["panel_ouvert"] = None if actif else key
                 st.rerun()
+            # Bouton invisible superposé sur la carte
+            st.markdown("""<style>
+            button[kind="secondary"] {
+                margin-top:-164px!important;height:164px!important;
+                opacity:0!important;cursor:pointer!important;
+                position:relative!important;z-index:10!important;
+                display:block!important;
+            }
+            </style>""", unsafe_allow_html=True)
 
     # Panneau pleine largeur
     panel=st.session_state.get("panel_ouvert")
