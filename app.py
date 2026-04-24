@@ -470,20 +470,33 @@ def calculer_kpi(comptes,totaux):
             "couverture":treso/(charges_tot/12) if charges_tot>0 else 0,
             "detail":detail}
 
-def panel_detail(titre, comptes_dict, annee, comptes_c_dict=None, couleur=C["bleu"]):
+def panel_detail(titre, comptes_dict, annee, comptes_c_dict=None, couleur=C["bleu"], mode="standard"):
     mois=EXERCICES.get(annee,{}).get("mois",12)
     st.markdown(f'<div class="panel"><div class="panel-title">📋 {titre}</div>',
                 unsafe_allow_html=True)
     rows=[]
     for num,c in sorted(comptes_dict.items(),
-        key=lambda x:-max(x[1]["debit"],x[1]["credit"],x[1].get("sd",0),x[1].get("sc",0))):
-        val_n=max(c["debit"],c["credit"],c.get("sd",0),c.get("sc",0))
-        val_n_ann=annualiser(val_n,annee)
-        val_c=0
+        key=lambda x:-x[1]["credit"]):
+        # Pour les comptes de produits (70) : afficher crédit (CA facturé)
+        # Pour les autres : afficher le montant le plus significatif
+        if mode == "produits":
+            val_n = c["credit"]  # CA brut facturé
+            avoirs = c["debit"]  # Avoirs / refacturations internes
+        else:
+            val_n = max(c["debit"],c["credit"],c.get("sd",0),c.get("sc",0))
+            avoirs = 0
+
+        if val_n == 0: continue
+        val_n_ann = annualiser(val_n, annee)
+        val_c = 0
         if comptes_c_dict and num in comptes_c_dict:
-            cc=comptes_c_dict[num]
-            val_c=max(cc["debit"],cc["credit"],cc.get("sd",0),cc.get("sc",0))
-        row={"Compte":num,"Intitulé":c["intitule"][:50],"Montant N":fmt(val_n,k=False)}
+            cc = comptes_c_dict[num]
+            val_c = cc["credit"] if mode=="produits" else max(cc["debit"],cc["credit"],cc.get("sd",0),cc.get("sc",0))
+
+        row = {"Compte":num, "Intitulé":c["intitule"][:45], "CA facturé":fmt(val_n,k=False)}
+        if mode=="produits" and avoirs > 0:
+            row["Avoirs/Refact."] = f"−{fmt(avoirs,k=False)}"
+            row["Net"] = fmt(val_n-avoirs,k=False)
         if mois!=12: row["Annualisé"]=fmt(val_n_ann,k=False)
         if val_c>0:
             p=(val_n_ann-val_c)/val_c*100
@@ -494,6 +507,14 @@ def panel_detail(titre, comptes_dict, annee, comptes_c_dict=None, couleur=C["ble
         df_d=pd.DataFrame(rows)
         st.dataframe(df_d,use_container_width=True,hide_index=True,
                     height=min(len(rows)*38+50,500))
+    # Total
+    total_n = sum(c["credit"] if mode=="produits" else max(c["debit"],c["credit"],c.get("sd",0),c.get("sc",0))
+                  for c in comptes_dict.values())
+    st.markdown(
+        f'<div style="background:#f0f7ff;border-radius:8px;padding:10px 16px;margin-top:8px;font-weight:700">' +
+        f'Total Ex.{annee} : {fmt(total_n,k=False)}' +
+        (f' · Annualisé : {fmt(annualiser(total_n,annee),k=False)}' if mois!=12 else '') +
+        '</div>', unsafe_allow_html=True)
     st.markdown('</div>',unsafe_allow_html=True)
     if st.button("✕ Fermer le détail",key=f"close_{titre[:15]}"):
         st.session_state["panel_ouvert"]=None
