@@ -241,9 +241,9 @@ def jauge_verticale(pct, label, valeur_str, valeur_keur):
     fig.add_hline(y=100, line_color="#555", line_dash="dot", line_width=1.5)
 
     # Annotation % EN DEHORS de la barre, tout en haut
-    y_annot = pct_c + 6 if pct_c < 90 else pct_c - 10
+    # % toujours AU-DESSUS de la ligne pointillée (y=100)
     fig.add_annotation(
-        x=0, y=y_annot,
+        x=0, y=105,
         text=f"<b>{pct:.0f}%</b>",
         showarrow=False,
         font=dict(size=16, color=couleur),
@@ -257,7 +257,7 @@ def jauge_verticale(pct, label, valeur_str, valeur_keur):
         paper_bgcolor="rgba(0,0,0,0)",
         barmode="overlay",
         yaxis=dict(
-            range=[0, 115],
+            range=[0, 125],
             tickvals=[0, 25, 50, 75, 100],
             ticktext=["0%", "25%", "50%", "75%", "100%"],
             tickfont=dict(size=9, color="#888"),
@@ -637,6 +637,7 @@ with tabs[0]:
         with col:
             vn_ann=annualiser(vn,annee)
             d=delta_html(vn_ann,vc,inv) if vc else ""
+            sub_display = f"Réel : {fmt(vn)} · {sub}" if mois!=12 and sub else (f"Réel : {fmt(vn)}" if mois!=12 else sub)
             actif = st.session_state.get("panel_ouvert")==key
             top_border = f"border-top: 4px solid {couleur} !important;"
             active_style = f"border: 2px solid {couleur} !important; box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important;" if actif else top_border
