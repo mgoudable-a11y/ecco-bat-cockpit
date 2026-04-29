@@ -1023,12 +1023,13 @@ with tabs[1]:
         fig=go.Figure()
         fig.add_trace(go.Bar(x=x_labels,y=vals_m,
             marker_color=[C["rouge"] if v<moy*0.5 else C["vert"] if v>moy*1.5 else C["bleu"] for v in vals_m],
-            text=[fmt(v,k=False) for v in vals_m],textposition="outside",textfont=dict(size=9)))
+            text=[fmt(v,k=False) for v in vals_m],textposition="outside",textfont=dict(size=11,color="#1a2332")))
         fig.add_trace(go.Scatter(x=x_labels,y=[moy]*len(mois_pres),mode="lines",
             line=dict(color=C["orange"],dash="dash",width=1.5),name=f"Moy. {fmt(moy,k=False)}"))
-        fig.update_layout(height=300,margin=dict(t=30,b=0,l=0,r=0),showlegend=False,
+        fig.update_layout(height=320,margin=dict(t=40,b=0,l=0,r=0),showlegend=False,
             plot_bgcolor="rgba(0,0,0,0)",paper_bgcolor="rgba(0,0,0,0)",
-            yaxis=dict(title="€ HT",gridcolor="#f0f0f0"))
+            yaxis=dict(title="€ HT",gridcolor="#f0f0f0"),
+            xaxis=dict(tickfont=dict(size=12)))
         st.plotly_chart(fig,use_container_width=True,config=CFG)
 
 # ── ANALYSE CLIENTS : Podium + DSO + Payeurs ────────────
@@ -1057,20 +1058,20 @@ with tabs[1]:
   <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8896a5;margin-bottom:8px">🏆 Top 3 clients</div>
   <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;height:180px;padding-bottom:0">
     <div style="display:flex;flex-direction:column;align-items:center;width:30%">
-      <div style="font-size:9px;font-weight:600;color:#555;text-align:center;line-height:1.2;margin-bottom:2px">{n[1]}</div>
-      <div style="font-size:9px;color:{C["bleu"]};font-weight:700;margin-bottom:2px">{fmt(v[1]) if v[1] else ""}</div>
+      <div style="font-size:12px;font-weight:600;color:#555;text-align:center;line-height:1.2;margin-bottom:2px">{n[1]}</div>
+      <div style="font-size:11px;color:{C["bleu"]};font-weight:700;margin-bottom:2px">{fmt(v[1]) if v[1] else ""}</div>
       <div style="background:{C["bleu"]};width:100%;height:80px;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:center">
         <span style="color:white;font-size:22px;font-weight:900">2</span></div>
     </div>
     <div style="display:flex;flex-direction:column;align-items:center;width:33%">
-      <div style="font-size:9px;font-weight:700;color:{C["orange"]};text-align:center;line-height:1.2;margin-bottom:2px">{n[0]}</div>
-      <div style="font-size:9px;color:{C["orange"]};font-weight:700;margin-bottom:2px">{fmt(v[0]) if v[0] else ""}</div>
+      <div style="font-size:12px;font-weight:700;color:{C["orange"]};text-align:center;line-height:1.2;margin-bottom:2px">{n[0]}</div>
+      <div style="font-size:11px;color:{C["orange"]};font-weight:700;margin-bottom:2px">{fmt(v[0]) if v[0] else ""}</div>
       <div style="background:{C["orange"]};width:100%;height:120px;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:center">
         <span style="color:white;font-size:28px;font-weight:900">1</span></div>
     </div>
     <div style="display:flex;flex-direction:column;align-items:center;width:30%">
-      <div style="font-size:9px;font-weight:600;color:#555;text-align:center;line-height:1.2;margin-bottom:2px">{n[2]}</div>
-      <div style="font-size:9px;color:{C["gris"]};font-weight:700;margin-bottom:2px">{fmt(v[2]) if v[2] else ""}</div>
+      <div style="font-size:12px;font-weight:600;color:#555;text-align:center;line-height:1.2;margin-bottom:2px">{n[2]}</div>
+      <div style="font-size:11px;color:{C["gris"]};font-weight:700;margin-bottom:2px">{fmt(v[2]) if v[2] else ""}</div>
       <div style="background:{C["gris"]};width:100%;height:55px;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:center">
         <span style="color:white;font-size:18px;font-weight:900">3</span></div>
     </div>
