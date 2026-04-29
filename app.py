@@ -382,6 +382,50 @@ def lire_balance_agee(annee):
             "clients": sorted(clients,key=lambda x:-x["plus_61"])}
 
 @st.cache_data
+def lire_dso_clients(annee):
+    """Calcule le DSO réel par client via lettrage facture/règlement dans le grand livre 411"""
+    from datetime import datetime
+    from collections import defaultdict
+    p = DATA / f"grand_livre_clients_{annee}.xlsx"
+    if not p.exists(): return {}
+    df = pd.read_excel(p, header=None, dtype=str)
+
+    # Regrouper les écritures par (client normalisé, lettre de rapprochement)
+    par_lettre = defaultdict(list)
+    for _, row in df.iterrows():
+        date_raw = str(row[0]).strip() if pd.notna(row[0]) else ""
+        libelle  = str(row[5]).strip() if pd.notna(row[5]) else ""
+        lettre   = str(row[9]).strip() if pd.notna(row[9]) else ""
+        debit_r  = str(row[12]).strip() if pd.notna(row[12]) else ""
+        credit_r = str(row[15]).strip() if pd.notna(row[15]) else ""
+        if not libelle or libelle == "nan": continue
+        if not lettre or lettre in ["nan","*","F",""] or len(lettre) > 3: continue
+        if not any(yr in date_raw for yr in ["2022","2023","2024","2025"]): continue
+        try:
+            d = float(debit_r.replace(" ","").replace(",",".")) if debit_r and debit_r!="nan" else 0
+            c = float(credit_r.replace(" ","").replace(",",".")) if credit_r and credit_r!="nan" else 0
+            date_obj = datetime.strptime(date_raw[:10], "%Y-%m-%d")
+            nom = norm_client(libelle)
+            par_lettre[(nom, lettre)].append({"date": date_obj, "debit": d, "credit": c})
+        except: pass
+
+    # Calculer délai réel par couple facture/règlement
+    delais = defaultdict(list)
+    for (nom, lettre), lignes in par_lettre.items():
+        factures   = [l for l in lignes if l["debit"] > 0]
+        reglements = [l for l in lignes if l["credit"] > 0]
+        if not factures or not reglements: continue
+        date_fact  = min(l["date"] for l in factures)
+        date_regl  = max(l["date"] for l in reglements)
+        delai = (date_regl - date_fact).days
+        if 0 < delai <= 180:  # exclure les 0j (paiements même jour = pas significatif)
+            delais[nom].append(delai)
+
+    # DSO moyen par client (min 2 factures pour être fiable)
+    return {nom: sum(d)/len(d) for nom, d in delais.items() if len(d) >= 2}
+
+
+@st.cache_data
 def lire_clients(annee):
     """
     Source unique : grand livre 411, journal VT/VL uniquement (exclure AD = à-nouveaux).
@@ -993,19 +1037,10 @@ with tabs[1]:
     top3_clients = sorted(clients_d.items(), key=lambda x:-x[1])[:3] if clients_d else []
     total_ca_cli = sum(clients_d.values()) if clients_d else 1
 
-    # DSO par client via balance âgée
-    dso_par_cli = []
-    if agee and agee.get("clients"):
-        for cag in agee["clients"]:
-            nom_age = cag["nom"]
-            ca_cli = 0
-            for nom_gl, v in clients_d.items():
-                if nom_gl.upper()[:7] in nom_age.upper() or nom_age.upper()[:7] in nom_gl.upper():
-                    ca_cli = v; break
-            if ca_cli > 500 and cag["total"] > 0:
-                dso_cli = cag["total"] / ca_cli * 365
-                if 0 < dso_cli < 300:
-                    dso_par_cli.append({"nom": nom_age[:22], "dso": dso_cli})
+    # DSO réel par client via lettrage facture/règlement
+    dso_dict = lire_dso_clients(annee)
+    dso_par_cli = [{"nom": nom[:22], "dso": dso}
+                   for nom, dso in dso_dict.items() if dso > 0]
     dso_sorted_cli = sorted(dso_par_cli, key=lambda x: x["dso"])
     bons    = dso_sorted_cli[:3]
     mauvais = dso_sorted_cli[-3:][::-1]
