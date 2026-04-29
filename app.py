@@ -395,27 +395,38 @@ def lire_clients(annee):
     clients_ttc, mensuel_ttc = {}, {}
     total_ttc = 0
 
+    # ── 1ère passe : agréger débits et crédits par (client, mois) ──────────
+    from collections import defaultdict
+    par_cli = defaultdict(lambda: {"d": 0.0, "c": 0.0})
+
     for _, row in df.iterrows():
         date_raw = str(row[0]).strip() if pd.notna(row[0]) else ""
         journal  = str(row[1]).strip() if pd.notna(row[1]) else ""
         libelle  = str(row[5]).strip() if pd.notna(row[5]) else ""
         debit_r  = str(row[12]).strip() if pd.notna(row[12]) else ""
+        credit_r = str(row[15]).strip() if pd.notna(row[15]) else ""
 
-        # EXCLURE journal AD (à-nouveaux = reprises de soldes, pas des ventes réelles)
         if journal not in ["VT", "VL"]: continue
         if not any(yr in date_raw for yr in ["2022","2023","2024","2025"]): continue
         if not libelle or libelle == "nan": continue
         if any(x in libelle for x in ["VIR SEPA","Règlement","PRLV","Ajust","écart","EFFET"]): continue
-
+        mois_key = date_raw[:7]
         try:
-            debit = float(debit_r.replace(" ","").replace(",","."))
-            if debit <= 100: continue
-            nom = norm_client(libelle)
-            clients_ttc[nom] = clients_ttc.get(nom, 0) + debit
-            mois_key = date_raw[:7]
-            mensuel_ttc[mois_key] = mensuel_ttc.get(mois_key, 0) + debit
-            total_ttc += debit
+            d = float(debit_r.replace(" ","").replace(",","."))  if debit_r  and debit_r  != "nan" else 0.0
+            c = float(credit_r.replace(" ","").replace(",",".")) if credit_r and credit_r != "nan" else 0.0
+            par_cli[(libelle, mois_key)]["d"] += d
+            par_cli[(libelle, mois_key)]["c"] += c
         except: pass
+
+    # ── 2ème passe : calculer le net par client+mois ─────────────────────
+    # Cette approche neutralise les refacturations internes (ex: ADVIVO 569k D + 569k C)
+    for (libelle, mois_key), vals in par_cli.items():
+        net = vals["d"] - vals["c"]
+        if net <= 100: continue  # avoir net ou montant négligeable
+        nom = norm_client(libelle)
+        clients_ttc[nom] = clients_ttc.get(nom, 0) + net
+        mensuel_ttc[mois_key] = mensuel_ttc.get(mois_key, 0) + net
+        total_ttc += net
 
     # Conversion TTC → HT avec le vrai CA de la balance
     ca_ht = abs(lire_balance(annee)[1].get("70", {}).get("solde", total_ttc))
