@@ -337,32 +337,49 @@ def lire_analytique(annee):
 
 @st.cache_data
 def lire_balance_agee(annee):
+    """
+    Structure réelle Sage 100 balance âgée (colonnes fixes Excel) :
+    Col 0 : code tiers | Col 3 : intitulé | Col 6 : solde total
+    Col 8 : non échu   | Col 11 : 1-30j   | Col 13 : 31-45j
+    Col 15 : 46-60j    | Col 18 : +61j
+    """
     p=DATA/f"balance_agee_clients_{annee}.xlsx"
     if not p.exists(): return {}
     df=pd.read_excel(p,header=None,dtype=str)
+
+    def gf(row, col):
+        try:
+            v=str(row[col]).strip() if pd.notna(row[col]) else ""
+            return abs(float(v.replace(" ","").replace(",","."))) if v and v!="nan" else 0.0
+        except: return 0.0
+
     clients=[]
     for _,row in df.iterrows():
-        vals=[str(v).strip() for v in row.values if pd.notna(v) and str(v).strip() not in ["","nan"]]
-        if len(vals)<3 or vals[0] in ["Totaux","Total","% Période"]: continue
-        if not vals[0].isdigit() and len(vals[0])>2:
-            nums=[]
-            for v in vals[2:]:
-                try: nums.append(float(v.replace(" ","").replace(",",".")))
-                except: pass
-            if nums and abs(nums[0])>0:
-                clients.append({"nom":vals[1] if len(vals)>1 else vals[0],
-                    "total":abs(nums[0]),"non_echu":abs(nums[1]) if len(nums)>1 else 0,
-                    "j1_30":abs(nums[2]) if len(nums)>2 else 0,
-                    "j31_45":abs(nums[3]) if len(nums)>3 else 0,
-                    "j46_60":abs(nums[4]) if len(nums)>4 else 0,
-                    "plus_61":abs(nums[5]) if len(nums)>5 else 0})
-    return {"total":sum(c["total"] for c in clients),
+        code=str(row[0]).strip() if pd.notna(row[0]) else ""
+        if not code or code in ["nan","Total C. général","Totaux","% Période","Numéro","Balance","au","Ecco","Sur","©"]:
+            continue
+        if code.startswith("411"): continue  # ignorer les lignes de total de compte
+        intitule=str(row[3]).strip() if pd.notna(row[3]) else ""
+        if not intitule or intitule=="nan": continue
+        solde=gf(row,6)
+        if solde==0: continue
+        clients.append({
+            "nom": intitule,
+            "code": code,
+            "total":   solde,
+            "non_echu":gf(row,8),
+            "j1_30":   gf(row,11),
+            "j31_45":  gf(row,13),
+            "j46_60":  gf(row,15),
+            "plus_61": gf(row,18),
+        })
+    return {"total":   sum(c["total"]    for c in clients),
             "non_echu":sum(c["non_echu"] for c in clients),
-            "j1_30":sum(c["j1_30"] for c in clients),
-            "j31_45":sum(c["j31_45"] for c in clients),
-            "j46_60":sum(c["j46_60"] for c in clients),
-            "plus_61":sum(c["plus_61"] for c in clients),
-            "clients":sorted(clients,key=lambda x:-x["plus_61"])}
+            "j1_30":   sum(c["j1_30"]   for c in clients),
+            "j31_45":  sum(c["j31_45"]  for c in clients),
+            "j46_60":  sum(c["j46_60"]  for c in clients),
+            "plus_61": sum(c["plus_61"] for c in clients),
+            "clients": sorted(clients,key=lambda x:-x["plus_61"])}
 
 @st.cache_data
 def lire_clients(annee):
