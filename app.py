@@ -216,61 +216,92 @@ def jauge(val, min_v, max_v, titre, unite="%", couleur=None, val_comp=None,
     return fig
 
 def jauge_verticale(pct, label, valeur_str, valeur_keur):
-    """Thermomètre vertical avec graduation % et valeur k€"""
+    """Thermomètre graphique style tube avec bulbe"""
     pct_c = min(pct, 100)
-    if pct < 50:    couleur, bg = "#D85A30", "#FFF5F5"
-    elif pct < 70:  couleur, bg = "#E07030", "#FFF3EE"
-    elif pct < 100: couleur, bg = "#D4A017", "#FFFBEB"
-    else:            couleur, bg = "#1D9E75", "#F0FFF4"
+    if pct < 50:    couleur, couleur_dark = "#D85A30", "#B04020"
+    elif pct < 70:  couleur, couleur_dark = "#E07030", "#B85020"
+    elif pct < 100: couleur, couleur_dark = "#D4A017", "#A07010"
+    else:            couleur, couleur_dark = "#1D9E75", "#148055"
 
     fig = go.Figure()
 
-    # Fond gris (100%)
+    # ── Tube fond (gris) ──────────────────────────────────
+    # Tube complet gris
     fig.add_trace(go.Bar(
-        x=[""], y=[100],
-        marker_color="#E8ECF0", width=0.4,
-        showlegend=False, hoverinfo="skip"
+        x=[0.5], y=[100],
+        width=0.18,
+        marker=dict(color="#E0E4EA", line=dict(color="#C8CDD5", width=1)),
+        showlegend=False, hoverinfo="skip",
+        base=0,
     ))
-    # Remplissage coloré - sans texte dans la barre
+    # Remplissage coloré (mercure)
     fig.add_trace(go.Bar(
-        x=[""], y=[pct_c],
-        marker_color=couleur, width=0.4,
+        x=[0.5], y=[pct_c],
+        width=0.18,
+        marker=dict(
+            color=couleur,
+            line=dict(color=couleur_dark, width=1),
+        ),
         showlegend=False,
-        hovertemplate=f"{label}: {pct:.0f}%<extra></extra>"
+        hovertemplate=f"<b>{label}</b><br>{pct:.0f}% de l'objectif<br>{valeur_keur}<extra></extra>",
+        base=0,
     ))
-    # Ligne objectif 100%
-    fig.add_hline(y=100, line_color="#555", line_dash="dot", line_width=1.5)
 
-    # Annotation % EN DEHORS de la barre, tout en haut
-    # % toujours AU-DESSUS de la ligne pointillée (y=100)
+    # ── Bulbe en bas ──────────────────────────────────────
+    fig.add_shape(type="circle",
+        x0=0.3, x1=0.7, y0=-14, y1=2,
+        fillcolor=couleur, line=dict(color=couleur_dark, width=2),
+        layer="above"
+    )
+    # Reflet sur le bulbe
+    fig.add_shape(type="circle",
+        x0=0.36, x1=0.52, y0=-11, y1=-3,
+        fillcolor="rgba(255,255,255,0.3)", line=dict(color="rgba(255,255,255,0)", width=0),
+        layer="above"
+    )
+
+    # ── Ligne objectif 100% ───────────────────────────────
+    fig.add_shape(type="line",
+        x0=0.2, x1=0.8, y0=100, y1=100,
+        line=dict(color="#333", dash="dot", width=2)
+    )
+
+    # ── Graduations à droite du tube ──────────────────────
+    for tick in [0, 25, 50, 75, 100]:
+        fig.add_shape(type="line",
+            x0=0.61, x1=0.68, y0=tick, y1=tick,
+            line=dict(color="#888", width=1)
+        )
+        fig.add_annotation(
+            x=0.72, y=tick,
+            text=f"{tick}%",
+            showarrow=False,
+            font=dict(size=9, color="#888"),
+            xanchor="left", yanchor="middle"
+        )
+
+    # ── Valeur % au-dessus du mercure ─────────────────────
+    y_pct = pct_c + 5 if pct_c < 92 else pct_c - 8
     fig.add_annotation(
-        x=0, y=105,
+        x=0.5, y=y_pct,
         text=f"<b>{pct:.0f}%</b>",
         showarrow=False,
-        font=dict(size=16, color=couleur),
-        xanchor="center", yanchor="bottom"
+        font=dict(size=15, color="white" if pct_c > 15 else couleur),
+        xanchor="center", yanchor="middle"
     )
 
     fig.update_layout(
-        height=230,
-        margin=dict(t=55, b=5, l=35, r=10),
-        plot_bgcolor=bg,
+        height=280,
+        margin=dict(t=60, b=20, l=10, r=40),
+        plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
         barmode="overlay",
-        yaxis=dict(
-            range=[0, 125],
-            tickvals=[0, 25, 50, 75, 100],
-            ticktext=["0%", "25%", "50%", "75%", "100%"],
-            tickfont=dict(size=9, color="#888"),
-            gridcolor="#e8ecf0", gridwidth=1,
-            showgrid=True, zeroline=False,
-        ),
-        xaxis=dict(showticklabels=False),
+        xaxis=dict(range=[0,1], showticklabels=False, showgrid=False, zeroline=False),
+        yaxis=dict(range=[-15, 115], showticklabels=False, showgrid=False, zeroline=False),
         title=dict(
-            text=f"<b style='color:#1a2332'>{label}</b><br>"
-                 f"<span style='font-size:13px;font-weight:700;color:{couleur}'>{valeur_keur}</span>",
+            text=(f"<b style='color:#1a2332'>{label}</b><br>"
+                  f"<span style='font-size:13px;font-weight:700;color:{couleur}'>{valeur_keur}</span>"),
             font=dict(size=12), x=0.5, xanchor="center",
-            pad=dict(t=0)
         ),
     )
     return fig
