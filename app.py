@@ -987,37 +987,7 @@ with tabs[1]:
             yaxis=dict(title="€ HT",gridcolor="#f0f0f0"))
         st.plotly_chart(fig,use_container_width=True,config=CFG)
 
-    if clients_d:
-        st.markdown('<div class="section-title">Top 10 clients</div>',unsafe_allow_html=True)
-        top10=sorted(clients_d.items(),key=lambda x:-x[1])[:10]
-        total_cli=sum(v for _,v in clients_d.items())
-        c1,c2=st.columns([1,1])
-        with c1:
-            rows=[]
-            for nom,v in top10:
-                pct=v/total_cli*100 if total_cli>0 else 0
-                vc_cli=clients_c.get(nom,0)
-                if vc_cli>0:
-                    p=(annualiser(v,annee)-vc_cli)/vc_cli*100
-                    var=f"{'+'if p>0 else ''}{fmt_pct(p)} ({fmt(vc_cli)})"
-                else: var="Nouveau"
-                rows.append({"Client":nom,"CA HT":fmt(v,k=False),"% CA":f"{pct:.1f}%","vs N-1":var})
-            st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True,
-                column_config={"Client":st.column_config.TextColumn("Client",width="medium")})
-        with c2:
-            noms=[n[:22] for n,_ in top10]; vals_cli=[v/1000 for _,v in top10]
-            fig=go.Figure(go.Bar(y=noms[::-1],x=vals_cli[::-1],orientation="h",
-                marker_color=C["bleu"],text=[fmt(v*1000) for v in vals_cli[::-1]],textposition="outside"))
-            fig.update_layout(height=320,margin=dict(t=10,b=0,l=0,r=100),
-                plot_bgcolor="rgba(0,0,0,0)",paper_bgcolor="rgba(0,0,0,0)",
-                xaxis=dict(title="k€ HT",gridcolor="#f0f0f0"))
-            st.plotly_chart(fig,use_container_width=True,config=CFG)
-        if top10:
-            top1_pct=top10[0][1]/total_cli*100
-            if top1_pct>20:
-                st.markdown(f'<div class="alert-r">🚨 <b>{top10[0][0]}</b> = {fmt_pct(top1_pct)} du CA</div>',unsafe_allow_html=True)
-
-    # ── ANALYSE CLIENTS : Podium + DSO + Payeurs ────────────
+# ── ANALYSE CLIENTS : Podium + DSO + Payeurs ────────────
     st.markdown('<div class="section-title">Analyse clients</div>',unsafe_allow_html=True)
 
     top3_clients = sorted(clients_d.items(), key=lambda x:-x[1])[:3] if clients_d else []
@@ -1114,6 +1084,38 @@ with tabs[1]:
     </div>
   </div>
 </div>""", unsafe_allow_html=True)
+
+    if clients_d:
+        st.markdown('<div class="section-title">Top 10 clients</div>',unsafe_allow_html=True)
+        top10=sorted(clients_d.items(),key=lambda x:-x[1])[:10]
+        total_cli=sum(v for _,v in clients_d.items())
+        c1,c2=st.columns([1,1])
+        with c1:
+            rows=[]
+            for nom,v in top10:
+                pct=v/total_cli*100 if total_cli>0 else 0
+                vc_cli=clients_c.get(nom,0)
+                if vc_cli>0:
+                    p=(annualiser(v,annee)-vc_cli)/vc_cli*100
+                    var=f"{'+'if p>0 else ''}{fmt_pct(p)} ({fmt(vc_cli)})"
+                else: var="Nouveau"
+                rows.append({"Client":nom,"CA HT":fmt(v,k=False),"% CA":f"{pct:.1f}%","vs N-1":var})
+            st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True,
+                column_config={"Client":st.column_config.TextColumn("Client",width="medium")})
+        with c2:
+            noms=[n[:22] for n,_ in top10]; vals_cli=[v/1000 for _,v in top10]
+            fig=go.Figure(go.Bar(y=noms[::-1],x=vals_cli[::-1],orientation="h",
+                marker_color=C["bleu"],text=[fmt(v*1000) for v in vals_cli[::-1]],textposition="outside"))
+            fig.update_layout(height=320,margin=dict(t=10,b=0,l=0,r=100),
+                plot_bgcolor="rgba(0,0,0,0)",paper_bgcolor="rgba(0,0,0,0)",
+                xaxis=dict(title="k€ HT",gridcolor="#f0f0f0"))
+            st.plotly_chart(fig,use_container_width=True,config=CFG)
+        if top10:
+            top1_pct=top10[0][1]/total_cli*100
+            if top1_pct>20:
+                st.markdown(f'<div class="alert-r">🚨 <b>{top10[0][0]}</b> = {fmt_pct(top1_pct)} du CA</div>',unsafe_allow_html=True)
+
+
 
 # ══ ONGLET 3 : ANALYTIQUE ═════════════════════════════════
 with tabs[2]:
