@@ -383,31 +383,83 @@ def lire_balance_agee(annee):
 
 @st.cache_data
 def lire_clients(annee):
-    p=DATA/f"grand_livre_clients_{annee}.xlsx"
-    if not p.exists(): return {},{}
-    df=pd.read_excel(p,header=None,dtype=str)
-    clients_ttc,mensuel_ttc={},{}
-    for _,row in df.iterrows():
-        date_raw=str(row[0]).strip() if pd.notna(row[0]) else ""
-        journal=str(row[1]).strip() if pd.notna(row[1]) else ""
-        libelle=str(row[5]).strip() if pd.notna(row[5]) else ""
-        debit_r=str(row[12]).strip() if pd.notna(row[12]) else ""
-        if not any(yr in date_raw for yr in ["2022","2023","2024","2025"]): continue
-        if journal not in ["AD","VT","VL"]: continue
-        if not libelle or libelle=="nan": continue
-        if any(x in libelle for x in ["VIR SEPA","Règlement","PRLV","Ajust","écart","RG 5%","EFFET"]): continue
-        try:
-            debit=float(debit_r.replace(" ","").replace(",","."))
-            if debit<=100: continue
-            nom=norm_client(libelle)
-            clients_ttc[nom]=clients_ttc.get(nom,0)+debit
-            mois_key=date_raw[:7]
-            mensuel_ttc[mois_key]=mensuel_ttc.get(mois_key,0)+debit
-        except: pass
-    total_ttc=sum(clients_ttc.values())
-    ca_ht=abs(lire_balance(annee)[1].get("70",{}).get("solde",total_ttc))
-    coef=ca_ht/total_ttc if total_ttc>0 else 1.0
-    return {k:v*coef for k,v in clients_ttc.items()},{k:v*coef for k,v in mensuel_ttc.items()}
+    """
+    - CA mensuel : depuis journal_ventes (comptes 706 = HT réel, sans doublons AD)
+    - Top clients : depuis grand livre 411 journal VT uniquement (sans AD = sans à-nouveaux)
+    Les deux sont convertis en HT via le coef CA_balance / total_brut
+    """
+    # ── CA mensuel depuis journal des ventes ─────────────
+    mensuel_ht = {}
+    p_jv = DATA / f"journal_ventes_{annee}.xlsx"
+    if p_jv.exists():
+        df_jv = pd.read_excel(p_jv, header=None, dtype=str)
+        total_jv = 0
+        for _, row in df_jv.iterrows():
+            compte = str(row[3]).strip() if pd.notna(row[3]) else ""
+            if not compte.startswith("706"): continue
+            date_raw = str(row[0]).strip() if pd.notna(row[0]) else ""
+            montant_r = str(row[18]).strip() if pd.notna(row[18]) else ""
+            try:
+                m = float(montant_r.replace(",",".").replace(" ",""))
+                if m > 0:
+                    mois_key = date_raw[:7]
+                    mensuel_ht[mois_key] = mensuel_ht.get(mois_key, 0) + m
+                    total_jv += m
+            except: pass
+
+    # Si pas de journal ventes dispo, fallback sur grand livre 411 VT uniquement
+    if not mensuel_ht:
+        p = DATA/f"grand_livre_clients_{annee}.xlsx"
+        if p.exists():
+            df = pd.read_excel(p, header=None, dtype=str)
+            total_ttc = 0
+            for _, row in df.iterrows():
+                date_raw = str(row[0]).strip() if pd.notna(row[0]) else ""
+                journal  = str(row[1]).strip() if pd.notna(row[1]) else ""
+                debit_r  = str(row[12]).strip() if pd.notna(row[12]) else ""
+                if journal not in ["VT","VL"]: continue  # exclure AD
+                try:
+                    debit = float(debit_r.replace(" ","").replace(",","."))
+                    if debit > 100:
+                        mois_key = date_raw[:7]
+                        mensuel_ht[mois_key] = mensuel_ht.get(mois_key, 0) + debit
+                        total_ttc += debit
+                except: pass
+            # Convertir en HT
+            ca_ht = abs(lire_balance(annee)[1].get("70", {}).get("solde", total_ttc))
+            coef = ca_ht / total_ttc if total_ttc > 0 else 1.0
+            mensuel_ht = {k: v*coef for k,v in mensuel_ht.items()}
+
+    # ── Top clients depuis grand livre 411 (VT uniquement) ─
+    clients_ttc = {}
+    p = DATA/f"grand_livre_clients_{annee}.xlsx"
+    if p.exists():
+        df = pd.read_excel(p, header=None, dtype=str)
+        total_ttc = 0
+        for _, row in df.iterrows():
+            date_raw = str(row[0]).strip() if pd.notna(row[0]) else ""
+            journal  = str(row[1]).strip() if pd.notna(row[1]) else ""
+            libelle  = str(row[5]).strip() if pd.notna(row[5]) else ""
+            debit_r  = str(row[12]).strip() if pd.notna(row[12]) else ""
+            if not any(yr in date_raw for yr in ["2022","2023","2024","2025"]): continue
+            if journal not in ["VT","VL"]: continue  # exclure AD (à-nouveaux)
+            if not libelle or libelle == "nan": continue
+            if any(x in libelle for x in ["VIR SEPA","Règlement","PRLV","Ajust","écart","RG","EFFET"]): continue
+            try:
+                debit = float(debit_r.replace(" ","").replace(",","."))
+                if debit <= 100: continue
+                nom = norm_client(libelle)
+                clients_ttc[nom] = clients_ttc.get(nom, 0) + debit
+                total_ttc += debit
+            except: pass
+        # Convertir en HT
+        ca_ht = abs(lire_balance(annee)[1].get("70", {}).get("solde", total_ttc))
+        coef = ca_ht / total_ttc if total_ttc > 0 else 1.0
+        clients_ht = {k: v*coef for k,v in clients_ttc.items()}
+    else:
+        clients_ht = {}
+
+    return clients_ht, mensuel_ht
 
 @st.cache_data
 def lire_fournisseurs(annee):
