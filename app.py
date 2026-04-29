@@ -1017,26 +1017,103 @@ with tabs[1]:
             if top1_pct>20:
                 st.markdown(f'<div class="alert-r">🚨 <b>{top10[0][0]}</b> = {fmt_pct(top1_pct)} du CA</div>',unsafe_allow_html=True)
 
-    if agee and agee.get("total",0)>0:
-        st.markdown('<div class="section-title">Balance âgée clients</div>',unsafe_allow_html=True)
-        total=agee["total"]
-        c1,c2,c3,c4,c5=st.columns(5)
-        kpi_agee=[
-            (c1,"Total créances",fmt(total),"",""),
-            (c2,"Non échu",fmt(agee["non_echu"]),f"{agee['non_echu']/total*100:.0f}%",""),
-            (c3,"1-30 jours",fmt(agee["j1_30"]),"",""),
-            (c4,"⚠️ +61 jours",fmt(agee["plus_61"]),f"{agee['plus_61']/total*100:.0f}%",C["rouge"]),
-            (c5,"DSO",f"{kpi['dso']:.0f} j","",""),
-        ]
-        for col,lbl,val,sub,coul in kpi_agee:
-            border=f"border-top:4px solid {coul};" if coul else ""
-            with col:
-                st.markdown(f'<div class="kpi-card" style="{border}cursor:default"><div class="kpi-label">{lbl}</div><div class="kpi-value">{val}</div><div class="kpi-sub">{sub}</div></div>',unsafe_allow_html=True)
-        retards=[c for c in agee["clients"] if c.get("plus_61",0)>100]
-        if retards:
-            st.dataframe(pd.DataFrame([{"Client":c["nom"],"Total dû":fmt(c["total"],k=False),
-                "+61j":fmt(c["plus_61"],k=False)} for c in retards]),
-                use_container_width=True,hide_index=True)
+    # ── ANALYSE CLIENTS : Podium + DSO + Payeurs ────────────
+    st.markdown('<div class="section-title">Analyse clients</div>',unsafe_allow_html=True)
+
+    top3_clients = sorted(clients_d.items(), key=lambda x:-x[1])[:3] if clients_d else []
+    total_ca_cli = sum(clients_d.values()) if clients_d else 1
+
+    # DSO par client via balance âgée
+    dso_par_cli = []
+    if agee and agee.get("clients"):
+        for cag in agee["clients"]:
+            nom_age = cag["nom"]
+            ca_cli = 0
+            for nom_gl, v in clients_d.items():
+                if nom_gl.upper()[:7] in nom_age.upper() or nom_age.upper()[:7] in nom_gl.upper():
+                    ca_cli = v; break
+            if ca_cli > 500 and cag["total"] > 0:
+                dso_cli = cag["total"] / ca_cli * 365
+                if 0 < dso_cli < 300:
+                    dso_par_cli.append({"nom": nom_age[:22], "dso": dso_cli})
+    dso_sorted_cli = sorted(dso_par_cli, key=lambda x: x["dso"])
+    bons    = dso_sorted_cli[:3]
+    mauvais = dso_sorted_cli[-3:][::-1]
+
+    col1, col2, col3 = st.columns(3)
+
+    # PODIUM
+    with col1:
+        n = [x[0][:16] for x in top3_clients]
+        v = [x[1] for x in top3_clients]
+        while len(n) < 3: n.append(""); v.append(0)
+        st.markdown(f"""
+<div style="background:white;border-radius:12px;padding:16px;border:1px solid #e8ecf0;height:260px;box-sizing:border-box">
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8896a5;margin-bottom:8px">🏆 Top 3 clients</div>
+  <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;height:180px;padding-bottom:0">
+    <div style="display:flex;flex-direction:column;align-items:center;width:30%">
+      <div style="font-size:9px;font-weight:600;color:#555;text-align:center;line-height:1.2;margin-bottom:2px">{n[1]}</div>
+      <div style="font-size:9px;color:{C["bleu"]};font-weight:700;margin-bottom:2px">{fmt(v[1]) if v[1] else ""}</div>
+      <div style="background:{C["bleu"]};width:100%;height:80px;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:center">
+        <span style="color:white;font-size:22px;font-weight:900">2</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;width:33%">
+      <div style="font-size:9px;font-weight:700;color:{C["orange"]};text-align:center;line-height:1.2;margin-bottom:2px">{n[0]}</div>
+      <div style="font-size:9px;color:{C["orange"]};font-weight:700;margin-bottom:2px">{fmt(v[0]) if v[0] else ""}</div>
+      <div style="background:{C["orange"]};width:100%;height:120px;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:center">
+        <span style="color:white;font-size:28px;font-weight:900">1</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;width:30%">
+      <div style="font-size:9px;font-weight:600;color:#555;text-align:center;line-height:1.2;margin-bottom:2px">{n[2]}</div>
+      <div style="font-size:9px;color:{C["gris"]};font-weight:700;margin-bottom:2px">{fmt(v[2]) if v[2] else ""}</div>
+      <div style="background:{C["gris"]};width:100%;height:55px;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:center">
+        <span style="color:white;font-size:18px;font-weight:900">3</span></div>
+    </div>
+  </div>
+  <div style="border-top:2px solid #e8ecf0;margin-top:4px;padding-top:6px;font-size:10px;color:#aaa;text-align:center">CA de l'exercice</div>
+</div>""", unsafe_allow_html=True)
+
+    # DSO CALENDRIER
+    with col2:
+        dso_val = kpi["dso"]
+        dso_col = C["vert"] if dso_val<30 else (C["orange"] if dso_val<60 else C["rouge"])
+        dso_label = "✅ Excellent" if dso_val<20 else ("✅ Bon délai" if dso_val<30 else ("⚠️ À surveiller" if dso_val<60 else "🔴 Délai long"))
+        st.markdown(f"""
+<div style="background:white;border-radius:12px;padding:16px;border:1px solid #e8ecf0;height:260px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center">
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8896a5;margin-bottom:8px">📅 DSO — Délai moyen de paiement</div>
+  <div style="font-size:52px;line-height:1">📅</div>
+  <div style="font-size:52px;font-weight:900;color:{dso_col};line-height:1.1;margin-top:4px">{dso_val:.0f}j</div>
+  <div style="font-size:11px;color:{dso_col};font-weight:600;margin-top:6px">{dso_label}</div>
+  <div style="font-size:10px;color:#aaa;margin-top:8px;text-align:center;line-height:1.4">
+    {fmt(kpi["creances"])} / {fmt(kpi["ca"])} × 365<br>
+    Créances ÷ CA annuel × 365 jours
+  </div>
+</div>""", unsafe_allow_html=True)
+
+    # BONS / MAUVAIS PAYEURS
+    with col3:
+        def ligne_payeur(p, couleur):
+            return (f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                    f'padding:5px 0;border-bottom:1px solid #f5f5f5">'
+                    f'<span style="font-size:11px;color:#1a2332">{p["nom"]}</span>'
+                    f'<span style="font-size:12px;font-weight:700;color:{couleur}">{p["dso"]:.0f}j</span>'
+                    f'</div>')
+        lignes_bons    = "".join([ligne_payeur(b,C["vert"])  for b in bons])    or "<div style='font-size:11px;color:#aaa'>—</div>"
+        lignes_mauvais = "".join([ligne_payeur(m,C["rouge"]) for m in mauvais]) or "<div style='font-size:11px;color:#aaa'>—</div>"
+        st.markdown(f"""
+<div style="background:white;border-radius:12px;padding:16px;border:1px solid #e8ecf0;height:260px;box-sizing:border-box">
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8896a5;margin-bottom:8px">⏱️ DSO par client</div>
+  <div style="display:flex;gap:8px;height:calc(100% - 32px)">
+    <div style="flex:1;background:#f0fff4;border-radius:8px;padding:10px;overflow:hidden">
+      <div style="font-size:11px;font-weight:700;color:{C["vert"]};margin-bottom:6px">😊 Bons payeurs</div>
+      {lignes_bons}
+    </div>
+    <div style="flex:1;background:#fff5f5;border-radius:8px;padding:10px;overflow:hidden">
+      <div style="font-size:11px;font-weight:700;color:{C["rouge"]};margin-bottom:6px">😟 À relancer</div>
+      {lignes_mauvais}
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
 
 # ══ ONGLET 3 : ANALYTIQUE ═════════════════════════════════
 with tabs[2]:
