@@ -826,16 +826,20 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
                         "46-60j": fmt(c["j46_60"], k=False) if c["j46_60"] > 0 else "—",
                         "+61j":   fmt(c["plus_61"],k=False) if c["plus_61"] > 0 else "—",
                     } for c in retards[:20]]
-                    rows_r.append({
-                        "Client": "── TOTAL ──",
-                        "Total dû": fmt(agee["total"],    k=False),
-                        "Non échu": fmt(agee["non_echu"], k=False),
-                        "1-30j":    fmt(agee["j1_30"],   k=False),
-                        "31-45j":   fmt(agee["j31_45"],  k=False),
-                        "46-60j":   fmt(agee["j46_60"],  k=False),
-                        "+61j":     fmt(agee["plus_61"], k=False),
-                    })
-                    st.dataframe(pd.DataFrame(rows_r), use_container_width=True, hide_index=True, height=350)
+                    # Ligne total séparée en HTML pour la mettre en évidence
+                    st.dataframe(pd.DataFrame(rows_r), use_container_width=True, hide_index=True,
+                                 height=min(len(rows_r)*38+50, 350))
+                    st.markdown(f"""
+<div style="background:#1a2332;color:white;border-radius:8px;padding:10px 16px;
+    margin-top:4px;display:flex;gap:0;font-size:13px;font-weight:700">
+    <div style="flex:2">TOTAL</div>
+    <div style="flex:1;text-align:right">{fmt(agee["total"],    k=False)}</div>
+    <div style="flex:1;text-align:right">{fmt(agee["non_echu"], k=False)}</div>
+    <div style="flex:1;text-align:right">{fmt(agee["j1_30"],   k=False)}</div>
+    <div style="flex:1;text-align:right">{fmt(agee["j31_45"],  k=False)}</div>
+    <div style="flex:1;text-align:right">{fmt(agee["j46_60"],  k=False)}</div>
+    <div style="flex:1;text-align:right;color:#FF8080">{fmt(agee["plus_61"], k=False)}</div>
+</div>""", unsafe_allow_html=True)
                 else:
                     st.info("Balance âgée non disponible")
             st.markdown('</div>', unsafe_allow_html=True)
