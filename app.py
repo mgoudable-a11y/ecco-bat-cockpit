@@ -817,13 +817,25 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
                 st.markdown("**Clients avec solde impayé (balance âgée)**")
                 if agee and agee.get("clients"):
                     retards = [c for c in agee["clients"] if c.get("total", 0) > 0]
-                    df_r = pd.DataFrame([{
+                    rows_r = [{
                         "Client": c["nom"],
                         "Total dû": fmt(c["total"], k=False),
                         "Non échu": fmt(c["non_echu"], k=False),
-                        "+61j": fmt(c["plus_61"], k=False) if c["plus_61"] > 0 else "—",
-                    } for c in retards[:15]])
-                    st.dataframe(df_r, use_container_width=True, hide_index=True, height=300)
+                        "1-30j":  fmt(c["j1_30"],  k=False) if c["j1_30"]  > 0 else "—",
+                        "31-45j": fmt(c["j31_45"], k=False) if c["j31_45"] > 0 else "—",
+                        "46-60j": fmt(c["j46_60"], k=False) if c["j46_60"] > 0 else "—",
+                        "+61j":   fmt(c["plus_61"],k=False) if c["plus_61"] > 0 else "—",
+                    } for c in retards[:20]]
+                    rows_r.append({
+                        "Client": "── TOTAL ──",
+                        "Total dû": fmt(agee["total"],    k=False),
+                        "Non échu": fmt(agee["non_echu"], k=False),
+                        "1-30j":    fmt(agee["j1_30"],   k=False),
+                        "31-45j":   fmt(agee["j31_45"],  k=False),
+                        "46-60j":   fmt(agee["j46_60"],  k=False),
+                        "+61j":     fmt(agee["plus_61"], k=False),
+                    })
+                    st.dataframe(pd.DataFrame(rows_r), use_container_width=True, hide_index=True, height=350)
                 else:
                     st.info("Balance âgée non disponible")
             st.markdown('</div>', unsafe_allow_html=True)
