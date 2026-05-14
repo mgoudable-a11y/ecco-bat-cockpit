@@ -1169,7 +1169,15 @@ with tabs[2]:
         st.info("Balance analytique non disponible.")
     else:
         st.markdown('<div class="section-title">Performance par activité</div>',unsafe_allow_html=True)
-        st.caption("ℹ️ Crédit = CA · Débit = charges directes · Écart possible avec CA total (refacturations internes)")
+        st.markdown("""
+<div style="background:#fffbeb;border-left:4px solid #BA7517;border-radius:8px;
+    padding:10px 16px;margin-bottom:12px;font-size:12px;color:#7a5700">
+    ⚠️ <b>Note comptable :</b> Les crédits analytiques (CA affiché par section) incluent les 
+    <b>refacturations internes</b> entre sections (ex : Frais Généraux refacturés aux sections 
+    opérationnelles). C'est pourquoi leur somme dépasse le CA réel de la balance générale. 
+    Les <b>charges et marges</b> directes par section sont fiables.
+</div>
+""", unsafe_allow_html=True)
         acts=list(analytique.keys())
         cols=st.columns(len(acts))
         for col,code in zip(cols,acts):
