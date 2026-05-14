@@ -1216,8 +1216,9 @@ with tabs[2]:
         # ── 1. VUE D'ENSEMBLE : CA / Charges / Résultat par section ─
         st.markdown("<div class='section-title'>Vue d'ensemble -- CA, Charges et Résultat par section</div>",
                     unsafe_allow_html=True)
-        sect_colors = {"1": C["bleu"], "2": C["vert"], "9": C["gris"]}
-        sect_names  = {"1": "MAINTENANCE", "2": "RENOVATION", "9": "FRAIS GEN."}
+        palette_dyn = [C["bleu"], C["vert"], C["orange"], C["violet"], C["rouge"], C["gris"]]
+        sect_colors = {a: palette_dyn[i % len(palette_dyn)] for i,a in enumerate(acts_all)}
+        sect_names  = {a: analytique[a]["label"] for a in acts_all}
 
         # Calculs par section
         ca_tot, chg_tot = 0, 0
@@ -1228,62 +1229,68 @@ with tabs[2]:
 
         fig_vue = go.Figure()
 
-        # Barres CA empilées par section
-        for a in acts_all:
+        # Palette de couleurs étendue pour toutes les sections
+        palette = [C["bleu"], C["vert"], C["orange"], C["violet"], C["rouge"], C["gris"]]
+        sect_palette = {a: palette[i % len(palette)] for i,a in enumerate(acts_all)}
+
+        col_res = C["vert"] if res_tot >= 0 else C["rouge"]
+
+        # Barre CA empilée par section
+        for i, a in enumerate(acts_all):
             ca_ann = annualiser(analytique[a]["ca"], annee)
             if ca_ann <= 0: continue
             fig_vue.add_trace(go.Bar(
-                name=f"CA {sect_names.get(a,a)}",
-                x=["CA par section"],
-                y=[ca_ann/1000],
-                marker_color=sect_colors.get(a, C["gris"]),
-                text=[f"{analytique[a]['label'][:12]}<br>{fmt(ca_ann)}"],
-                textposition="inside", textfont=dict(size=10, color="white"),
-                insidetextanchor="middle"
+                name=analytique[a]["label"],
+                x=["CA"], y=[ca_ann/1000],
+                marker_color=sect_palette[a],
+                text=[f"{analytique[a]['label'][:14]}<br>{fmt(ca_ann)}"],
+                textposition="inside", textfont=dict(size=9, color="white"),
+                insidetextanchor="middle", legendgroup=a
             ))
 
-        # Barres Charges empilées par section
-        for a in acts_all:
+        # Barre Charges empilée par section
+        for i, a in enumerate(acts_all):
             chg_ann = annualiser(analytique[a]["charges"], annee)
             if chg_ann <= 0: continue
             fig_vue.add_trace(go.Bar(
-                name=f"Chg. {sect_names.get(a,a)}",
-                x=["Charges par section"],
-                y=[chg_ann/1000],
-                marker_color=sect_colors.get(a, C["gris"]),
-                opacity=0.65,
-                text=[f"{analytique[a]['label'][:12]}<br>{fmt(chg_ann)}"],
-                textposition="inside", textfont=dict(size=10, color="white"),
-                insidetextanchor="middle"
+                name=analytique[a]["label"],
+                x=["Charges"], y=[chg_ann/1000],
+                marker_color=sect_palette[a], opacity=0.6,
+                text=[f"{analytique[a]['label'][:14]}<br>{fmt(chg_ann)}"],
+                textposition="inside", textfont=dict(size=9, color="white"),
+                insidetextanchor="middle", showlegend=False, legendgroup=a
             ))
 
-        # Barre Résultat total
-        col_res = C["vert"] if res_tot >= 0 else C["rouge"]
+        # Barre Marge empilée par section
+        for i, a in enumerate(acts_all):
+            mg_ann = annualiser(analytique[a]["marge"], annee)
+            if mg_ann <= 0: continue
+            fig_vue.add_trace(go.Bar(
+                name=analytique[a]["label"],
+                x=["Marge"], y=[mg_ann/1000],
+                marker_color=sect_palette[a], opacity=0.85,
+                text=[f"{analytique[a]['label'][:14]}<br>{fmt(mg_ann)}"],
+                textposition="inside", textfont=dict(size=9, color="white"),
+                insidetextanchor="middle", showlegend=False, legendgroup=a
+            ))
+
+        # Barre Résultat global
         fig_vue.add_trace(go.Bar(
-            name="Résultat net",
-            x=["Résultat global"],
-            y=[res_tot/1000],
+            name=f"Résultat total",
+            x=["Résultat"], y=[res_tot/1000],
             marker_color=col_res,
             text=[f"<b>{fmt(res_tot)}</b>"],
-            textposition="outside", textfont=dict(size=13, color=col_res),
+            textposition="outside", textfont=dict(size=14, color=col_res),
             showlegend=True
         ))
 
-        # Annotation bénéfice total
-        fig_vue.add_annotation(
-            x="Résultat global", y=res_tot/1000 + (ca_tot/1000)*0.05,
-            text=f"<b>{fmt(res_tot)}</b>",
-            showarrow=False, font=dict(size=15, color=col_res),
-            xanchor="center"
-        )
-
         fig_vue.update_layout(
-            barmode="stack", height=380,
-            margin=dict(t=40,b=0,l=0,r=0),
+            barmode="stack", height=400,
+            margin=dict(t=50,b=0,l=0,r=0),
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             yaxis=dict(title="k€", gridcolor="#f0f0f0"),
-            xaxis=dict(tickfont=dict(size=13)),
-            legend=dict(orientation="h", y=1.1)
+            xaxis=dict(tickfont=dict(size=13, color="#1a2332")),
+            legend=dict(orientation="h", y=1.12, font=dict(size=10))
         )
         st.plotly_chart(fig_vue, use_container_width=True, config=CFG)
 
@@ -1296,7 +1303,7 @@ with tabs[2]:
         for col_a, a in zip(cols_act, acts_all):
             data_a = analytique[a]
             ca_c_a = ana_c.get(a, {}).get("ca", 0)
-            col_s  = sect_colors.get(a, C["gris"])
+            col_s  = sect_colors.get(a, palette_dyn[-1])
             marge_col = C["vert"] if data_a["marge"] >= 0 else C["rouge"]
             actif = st.session_state.get("ana_panel") == a
             border = f"border:2px solid {col_s};" if actif else f"border-top:4px solid {col_s};"
@@ -1324,7 +1331,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
         panel_a = st.session_state.get("ana_panel")
         if panel_a and panel_a in analytique:
             data_a = analytique[panel_a]
-            col_s  = sect_colors.get(panel_a, C["gris"])
+            col_s  = sect_colors.get(panel_a, C["gris"])  # noqa
             ca_c_a = ana_c.get(panel_a,{}).get("ca",0)
             mg_c_a = ana_c.get(panel_a,{}).get("marge",0)
             st.markdown(f'<div class="panel"><div class="panel-title">📊 {data_a["label"]} -- Détail des comptes</div>', unsafe_allow_html=True)
