@@ -1216,23 +1216,75 @@ with tabs[2]:
         # ── 1. VUE D'ENSEMBLE : CA / Charges / Résultat par section ─
         st.markdown("<div class='section-title'>Vue d'ensemble -- CA, Charges et Résultat par section</div>",
                     unsafe_allow_html=True)
-        fig_vue = go.Figure()
         sect_colors = {"1": C["bleu"], "2": C["vert"], "9": C["gris"]}
+        sect_names  = {"1": "MAINTENANCE", "2": "RENOVATION", "9": "FRAIS GEN."}
+
+        # Calculs par section
+        ca_tot, chg_tot = 0, 0
         for a in acts_all:
-            data_a = analytique[a]
-            ca_ann  = annualiser(data_a["ca"],     annee)
-            chg_ann = annualiser(data_a["charges"], annee)
-            mg_ann  = ca_ann - chg_ann
-            col_s   = sect_colors.get(a, C["gris"])
-            col_res = C["vert"] if mg_ann >= 0 else C["rouge"]
-            lbl     = data_a["label"]
-            fig_vue.add_trace(go.Bar(x=[f"{lbl[:15]}<br>CA"],     y=[ca_ann/1000],  marker_color=col_s,   opacity=0.9, text=[fmt(ca_ann)],  textposition="outside", textfont=dict(size=10), showlegend=False))
-            fig_vue.add_trace(go.Bar(x=[f"{lbl[:15]}<br>Charges"],y=[chg_ann/1000], marker_color=col_s,   opacity=0.5, text=[fmt(chg_ann)], textposition="outside", textfont=dict(size=10), showlegend=False))
-            fig_vue.add_trace(go.Bar(x=[f"{lbl[:15]}<br>Résultat"],y=[mg_ann/1000], marker_color=col_res, opacity=0.9, text=[fmt(mg_ann)],  textposition="outside", textfont=dict(size=10), showlegend=False))
-        fig_vue.update_layout(barmode="group", height=340, margin=dict(t=40,b=0,l=0,r=0),
+            ca_tot  += annualiser(analytique[a]["ca"],      annee)
+            chg_tot += annualiser(analytique[a]["charges"],  annee)
+        res_tot = ca_tot - chg_tot
+
+        fig_vue = go.Figure()
+
+        # Barres CA empilées par section
+        for a in acts_all:
+            ca_ann = annualiser(analytique[a]["ca"], annee)
+            if ca_ann <= 0: continue
+            fig_vue.add_trace(go.Bar(
+                name=f"CA {sect_names.get(a,a)}",
+                x=["CA par section"],
+                y=[ca_ann/1000],
+                marker_color=sect_colors.get(a, C["gris"]),
+                text=[f"{analytique[a]['label'][:12]}<br>{fmt(ca_ann)}"],
+                textposition="inside", textfont=dict(size=10, color="white"),
+                insidetextanchor="middle"
+            ))
+
+        # Barres Charges empilées par section
+        for a in acts_all:
+            chg_ann = annualiser(analytique[a]["charges"], annee)
+            if chg_ann <= 0: continue
+            fig_vue.add_trace(go.Bar(
+                name=f"Chg. {sect_names.get(a,a)}",
+                x=["Charges par section"],
+                y=[chg_ann/1000],
+                marker_color=sect_colors.get(a, C["gris"]),
+                opacity=0.65,
+                text=[f"{analytique[a]['label'][:12]}<br>{fmt(chg_ann)}"],
+                textposition="inside", textfont=dict(size=10, color="white"),
+                insidetextanchor="middle"
+            ))
+
+        # Barre Résultat total
+        col_res = C["vert"] if res_tot >= 0 else C["rouge"]
+        fig_vue.add_trace(go.Bar(
+            name="Résultat net",
+            x=["Résultat global"],
+            y=[res_tot/1000],
+            marker_color=col_res,
+            text=[f"<b>{fmt(res_tot)}</b>"],
+            textposition="outside", textfont=dict(size=13, color=col_res),
+            showlegend=True
+        ))
+
+        # Annotation bénéfice total
+        fig_vue.add_annotation(
+            x="Résultat global", y=res_tot/1000 + (ca_tot/1000)*0.05,
+            text=f"<b>{fmt(res_tot)}</b>",
+            showarrow=False, font=dict(size=15, color=col_res),
+            xanchor="center"
+        )
+
+        fig_vue.update_layout(
+            barmode="stack", height=380,
+            margin=dict(t=40,b=0,l=0,r=0),
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             yaxis=dict(title="k€", gridcolor="#f0f0f0"),
-            xaxis=dict(tickfont=dict(size=11)))
+            xaxis=dict(tickfont=dict(size=13)),
+            legend=dict(orientation="h", y=1.1)
+        )
         st.plotly_chart(fig_vue, use_container_width=True, config=CFG)
 
         # ── 2. CARTES SECTIONS cliquables ───────────────────────────
@@ -1257,9 +1309,9 @@ with tabs[2]:
                     f'<div style="font-size:12px;color:{marge_col};font-weight:600;margin-top:2px">Marge {fmt(data_a["marge"])} ({fmt_pct(data_a["taux_marge"])})</div>'
                     +(f'<div style="font-size:11px;margin-top:3px">{delta_html(annualiser(data_a["ca"],annee),ca_c_a)}</div>' if ca_c_a else '')
                     +'</div>', unsafe_allow_html=True)
-                if st.button("📊", key=f"ana_btn_{a}", use_container_width=True):
+                clicked_a = st.button("📊", key=f"ana_btn_{a}", use_container_width=True)
+                if clicked_a:
                     st.session_state["ana_panel"] = None if actif else a
-                    st.rerun()
         st.markdown("""<style>
 div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
     opacity:0!important;height:120px!important;margin-top:-124px!important;
@@ -1301,7 +1353,6 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
             st.markdown('</div>', unsafe_allow_html=True)
             if st.button("✕ Fermer", key="close_ana"):
                 st.session_state["ana_panel"] = None
-                st.rerun()
 
         # ── 4. COMPARATIF N vs N-1 ──────────────────────────────────
         if ana_c:
