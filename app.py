@@ -1214,7 +1214,7 @@ with tabs[2]:
         acts_all = list(analytique.keys())
 
         # ── 1. VUE D'ENSEMBLE : CA / Charges / Résultat par section ─
-        st.markdown('<div class="section-title">Vue d'ensemble -- CA, Charges et Résultat par section</div>',
+        st.markdown("<div class='section-title'>Vue d'ensemble -- CA, Charges et Résultat par section</div>",
                     unsafe_allow_html=True)
         fig_vue = go.Figure()
         sect_colors = {"1": C["bleu"], "2": C["vert"], "9": C["gris"]}
@@ -1305,7 +1305,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
 
         # ── 4. COMPARATIF N vs N-1 ──────────────────────────────────
         if ana_c:
-            st.markdown('<div class="section-title">Comparatif N vs N-1 (annualisé)</div>', unsafe_allow_html=True)
+            st.markdown("<div class='section-title'>Comparatif N vs N-1 (annualisé)</div>", unsafe_allow_html=True)
             labels_c = [analytique[a]["label"][:20] for a in acts_all]
             fig2 = go.Figure()
             fig2.add_trace(go.Bar(name=f"CA {annee} ann.",    x=labels_c, y=[annualiser(analytique[a]["ca"],annee)/1000 for a in acts_all],    marker_color=C["bleu"]))
