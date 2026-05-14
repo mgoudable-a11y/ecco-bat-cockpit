@@ -337,6 +337,7 @@ def lire_analytique(annee):
 
     for _, row in df.iterrows():
         col0  = str(row[0]).strip()  if pd.notna(row[0])  else ""
+        col2  = str(row[2]).strip()  if pd.notna(row[2])  else ""
         col10 = str(row[10]).strip() if pd.notna(row[10]) else ""
         col12 = str(row[12]).strip() if pd.notna(row[12]) else ""
         col15 = str(row[15]).strip() if pd.notna(row[15]) else ""
@@ -381,6 +382,9 @@ def lire_analytique(annee):
     for s in result.values():
         s["marge"] = s["ca"] - s["charges"]
         s["taux_marge"] = s["marge"] / s["ca"] * 100 if s["ca"] > 0 else 0.0
+        # Top 10 comptes CA et Charges
+        s["top_ca"]      = sorted(s.get("detail_ca", {}).items(),      key=lambda x:-x[1])[:10]
+        s["top_charges"]  = sorted(s.get("detail_charges", {}).items(), key=lambda x:-x[1])[:10]
 
     return result
 
@@ -1207,54 +1211,112 @@ with tabs[2]:
     if not analytique:
         st.info("Balance analytique non disponible.")
     else:
-        st.markdown('<div class="section-title">Performance par activité</div>',unsafe_allow_html=True)
-        st.markdown("""
-<div style="background:#fffbeb;border-left:4px solid #BA7517;border-radius:8px;
-    padding:10px 16px;margin-bottom:12px;font-size:12px;color:#7a5700">
-    ⚠️ <b>Note comptable :</b> Les crédits analytiques (CA affiché par section) incluent les 
-    <b>refacturations internes</b> entre sections (ex : Frais Généraux refacturés aux sections 
-    opérationnelles). C'est pourquoi leur somme dépasse le CA réel de la balance générale. 
-    Les <b>charges et marges</b> directes par section sont fiables.
-</div>
-""", unsafe_allow_html=True)
-        acts=list(analytique.keys())
-        cols=st.columns(len(acts))
-        for col,code in zip(cols,acts):
-            data=analytique[code]; ca_c_a=ana_c.get(code,{}).get("ca",0)
-            couleur=C["vert"] if data["marge"]>0 else C["rouge"]
-            with col:
-                st.markdown(f"""<div class="kpi-card" style="border-top:4px solid {couleur};cursor:default;height:auto">
-                    <div class="kpi-label">{data['label']}</div>
-                    <div class="kpi-value">{fmt(data['ca'])}</div>
-                    <div style="color:{couleur};font-size:13px;font-weight:600;margin-top:4px">
-                        Marge {fmt(data['marge'])} ({fmt_pct(data['taux_marge'])})
-                    </div>
-                    {('<div class="kpi-delta">'+delta_html(annualiser(data['ca'],annee),ca_c_a)+'</div>') if ca_c_a else ''}
-                </div>""",unsafe_allow_html=True)
-        for code in acts:
-            data=analytique[code]; ca_c_a=ana_c.get(code,{}).get("ca",0); mg_c_a=ana_c.get(code,{}).get("marge",0)
-            with st.expander(f"📊 {data['label']} — CA : {fmt(data['ca'])} · Marge : {fmt(data['marge'])} ({fmt_pct(data['taux_marge'])})",expanded=False):
-                c1,c2,c3,c4=st.columns(4)
-                with c1:
-                    st.metric("CA (crédit)",fmt(data["ca"]))
-                    if ca_c_a: st.markdown(delta_html(annualiser(data["ca"],annee),ca_c_a),unsafe_allow_html=True)
-                with c2: st.metric("Charges (débit)",fmt(data["charges"]))
-                with c3:
-                    st.metric("Marge",fmt(data["marge"]))
-                    if mg_c_a: st.markdown(delta_html(annualiser(data["marge"],annee),mg_c_a),unsafe_allow_html=True)
-                with c4: st.metric("Taux de marge",fmt_pct(data["taux_marge"]))
+        acts_all = list(analytique.keys())
+
+        # ── 1. VUE D'ENSEMBLE : CA / Charges / Résultat par section ─
+        st.markdown('<div class="section-title">Vue d'ensemble — CA, Charges et Résultat par section</div>',
+                    unsafe_allow_html=True)
+        fig_vue = go.Figure()
+        sect_colors = {"1": C["bleu"], "2": C["vert"], "9": C["gris"]}
+        for a in acts_all:
+            data_a = analytique[a]
+            ca_ann  = annualiser(data_a["ca"],     annee)
+            chg_ann = annualiser(data_a["charges"], annee)
+            mg_ann  = ca_ann - chg_ann
+            col_s   = sect_colors.get(a, C["gris"])
+            col_res = C["vert"] if mg_ann >= 0 else C["rouge"]
+            lbl     = data_a["label"]
+            fig_vue.add_trace(go.Bar(x=[f"{lbl[:15]}<br>CA"],     y=[ca_ann/1000],  marker_color=col_s,   opacity=0.9, text=[fmt(ca_ann)],  textposition="outside", textfont=dict(size=10), showlegend=False))
+            fig_vue.add_trace(go.Bar(x=[f"{lbl[:15]}<br>Charges"],y=[chg_ann/1000], marker_color=col_s,   opacity=0.5, text=[fmt(chg_ann)], textposition="outside", textfont=dict(size=10), showlegend=False))
+            fig_vue.add_trace(go.Bar(x=[f"{lbl[:15]}<br>Résultat"],y=[mg_ann/1000], marker_color=col_res, opacity=0.9, text=[fmt(mg_ann)],  textposition="outside", textfont=dict(size=10), showlegend=False))
+        fig_vue.update_layout(barmode="group", height=340, margin=dict(t=40,b=0,l=0,r=0),
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            yaxis=dict(title="k€", gridcolor="#f0f0f0"),
+            xaxis=dict(tickfont=dict(size=11)))
+        st.plotly_chart(fig_vue, use_container_width=True, config=CFG)
+
+        # ── 2. CARTES SECTIONS cliquables ───────────────────────────
+        st.markdown('<div class="section-title">Détail par section — cliquer pour voir les comptes</div>',
+                    unsafe_allow_html=True)
+        if "ana_panel" not in st.session_state:
+            st.session_state["ana_panel"] = None
+        cols_act = st.columns(len(acts_all))
+        for col_a, a in zip(cols_act, acts_all):
+            data_a = analytique[a]
+            ca_c_a = ana_c.get(a, {}).get("ca", 0)
+            col_s  = sect_colors.get(a, C["gris"])
+            marge_col = C["vert"] if data_a["marge"] >= 0 else C["rouge"]
+            actif = st.session_state.get("ana_panel") == a
+            border = f"border:2px solid {col_s};" if actif else f"border-top:4px solid {col_s};"
+            with col_a:
+                st.markdown(
+                    f'<div style="background:white;border-radius:12px;padding:14px 16px;{border}'
+                    f'box-shadow:0 1px 4px rgba(0,0,0,0.05);cursor:pointer">'
+                    f'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8896a5">{data_a["label"]}</div>'
+                    f'<div style="font-size:22px;font-weight:800;color:#1a2332;margin-top:4px">{fmt(data_a["ca"])}</div>'
+                    f'<div style="font-size:12px;color:{marge_col};font-weight:600;margin-top:2px">Marge {fmt(data_a["marge"])} ({fmt_pct(data_a["taux_marge"])})</div>'
+                    +(f'<div style="font-size:11px;margin-top:3px">{delta_html(annualiser(data_a["ca"],annee),ca_c_a)}</div>' if ca_c_a else '')
+                    +'</div>', unsafe_allow_html=True)
+                if st.button("📊", key=f"ana_btn_{a}", use_container_width=True):
+                    st.session_state["ana_panel"] = None if actif else a
+                    st.rerun()
+        st.markdown("""<style>
+div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
+    opacity:0!important;height:120px!important;margin-top:-124px!important;
+    cursor:pointer!important;position:relative!important;z-index:100!important;
+    width:100%!important;background:transparent!important;border:none!important;
+}
+</style>""", unsafe_allow_html=True)
+
+        # ── 3. PANNEAU DÉTAIL section ────────────────────────────────
+        panel_a = st.session_state.get("ana_panel")
+        if panel_a and panel_a in analytique:
+            data_a = analytique[panel_a]
+            col_s  = sect_colors.get(panel_a, C["gris"])
+            ca_c_a = ana_c.get(panel_a,{}).get("ca",0)
+            mg_c_a = ana_c.get(panel_a,{}).get("marge",0)
+            st.markdown(f'<div class="panel"><div class="panel-title">📊 {data_a["label"]} — Détail des comptes</div>', unsafe_allow_html=True)
+            c1,c2,c3,c4 = st.columns(4)
+            with c1:
+                st.metric("CA", fmt(data_a["ca"]))
+                if ca_c_a: st.markdown(delta_html(annualiser(data_a["ca"],annee),ca_c_a), unsafe_allow_html=True)
+            with c2: st.metric("Charges directes", fmt(data_a["charges"]))
+            with c3:
+                st.metric("Marge", fmt(data_a["marge"]))
+                if mg_c_a: st.markdown(delta_html(annualiser(data_a["marge"],annee),mg_c_a), unsafe_allow_html=True)
+            with c4: st.metric("Taux de marge", fmt_pct(data_a["taux_marge"]))
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                st.markdown("**📈 Top 10 comptes CA (706)**")
+                top_ca = data_a.get("top_ca",[])
+                if top_ca:
+                    rows_ca = [{"Libellé": n[:45], "CA": fmt(v,k=False), "%": f"{v/data_a['ca']*100:.1f}%"} for n,v in top_ca]
+                    st.dataframe(pd.DataFrame(rows_ca), use_container_width=True, hide_index=True, height=min(len(rows_ca)*38+50,420))
+            with cc2:
+                st.markdown("**📉 Top 10 comptes Charges (6xx)**")
+                top_ch = data_a.get("top_charges",[])
+                if top_ch:
+                    rows_ch = [{"Libellé": n[:45], "Charge": fmt(v,k=False), "%": f"{v/data_a['charges']*100:.1f}%"} for n,v in top_ch]
+                    st.dataframe(pd.DataFrame(rows_ch), use_container_width=True, hide_index=True, height=min(len(rows_ch)*38+50,420))
+            st.markdown('</div>', unsafe_allow_html=True)
+            if st.button("✕ Fermer", key="close_ana"):
+                st.session_state["ana_panel"] = None
+                st.rerun()
+
+        # ── 4. COMPARATIF N vs N-1 ──────────────────────────────────
         if ana_c:
-            st.markdown('<div class="section-title">Comparatif N vs N-1</div>',unsafe_allow_html=True)
-            labels_act=[analytique[a]["label"][:20] for a in acts]
-            fig=go.Figure()
-            fig.add_trace(go.Bar(name=f"CA {annee} ann.",x=labels_act,y=[annualiser(analytique[a]["ca"],annee)/1000 for a in acts],marker_color=C["bleu"]))
-            fig.add_trace(go.Bar(name=f"CA {annee_c}",x=labels_act,y=[ana_c.get(a,{}).get("ca",0)/1000 for a in acts],marker_color="#85B7EB"))
-            fig.add_trace(go.Bar(name=f"Marge {annee} ann.",x=labels_act,y=[annualiser(analytique[a]["marge"],annee)/1000 for a in acts],marker_color=C["vert"]))
-            fig.add_trace(go.Bar(name=f"Marge {annee_c}",x=labels_act,y=[ana_c.get(a,{}).get("marge",0)/1000 for a in acts],marker_color="#9FE1CB"))
-            fig.update_layout(barmode="group",height=300,margin=dict(t=10,b=0,l=0,r=0),
-                legend=dict(orientation="h",y=1.1),plot_bgcolor="rgba(0,0,0,0)",paper_bgcolor="rgba(0,0,0,0)",
-                yaxis=dict(title="k€",gridcolor="#f0f0f0"))
-            st.plotly_chart(fig,use_container_width=True,config=CFG)
+            st.markdown('<div class="section-title">Comparatif N vs N-1 (annualisé)</div>', unsafe_allow_html=True)
+            labels_c = [analytique[a]["label"][:20] for a in acts_all]
+            fig2 = go.Figure()
+            fig2.add_trace(go.Bar(name=f"CA {annee} ann.",    x=labels_c, y=[annualiser(analytique[a]["ca"],annee)/1000 for a in acts_all],    marker_color=C["bleu"]))
+            fig2.add_trace(go.Bar(name=f"CA {annee_c}",       x=labels_c, y=[ana_c.get(a,{}).get("ca",0)/1000 for a in acts_all],              marker_color="#85B7EB"))
+            fig2.add_trace(go.Bar(name=f"Marge {annee} ann.", x=labels_c, y=[annualiser(analytique[a]["marge"],annee)/1000 for a in acts_all],  marker_color=C["vert"]))
+            fig2.add_trace(go.Bar(name=f"Marge {annee_c}",    x=labels_c, y=[ana_c.get(a,{}).get("marge",0)/1000 for a in acts_all],           marker_color="#9FE1CB"))
+            fig2.update_layout(barmode="group", height=300, margin=dict(t=10,b=0,l=0,r=0),
+                legend=dict(orientation="h",y=1.1),
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                yaxis=dict(title="k€", gridcolor="#f0f0f0"))
+            st.plotly_chart(fig2, use_container_width=True, config=CFG)
 
 # ══ ONGLET 4 : CHARGES & FOURNISSEURS ═════════════════════
 with tabs[3]:
