@@ -787,6 +787,78 @@ tabs=st.tabs(["🏠 Cockpit","📈 CA & Clients","🔬 Analytique","🔔 Charges
 # ══ ONGLET 1 : COCKPIT ════════════════════════════════════
 with tabs[0]:
 
+    # ── Illustration financière ─────────────────────────
+    def fleche_pct(vn, vc, inv=False):
+        """Retourne (symbole_fleche, pct_str, couleur_hex) pour l'illustration SVG"""
+        if not vc or vc == 0: return "", "", "#888780"
+        p = (vn - vc) / abs(vc) * 100
+        bon = p > 0 if not inv else p < 0
+        coul = "#1D9E75" if bon else "#E24B4A"
+        fleche_pts = "0,12 12,12 6,2" if p > 0 else "0,2 12,2 6,12"  # haut ou bas
+        signe = "+" if p > 0 else ""
+        return fleche_pts, f"{signe}{p:.1f}%", coul
+
+    ca_n   = kpi["ca"];      ca_c   = kpi_c.get("ca",0)   if kpi_c else 0
+    chg_n  = kpi["charges_tot"]; chg_c = kpi_c.get("charges_tot",0) if kpi_c else 0
+    res_n  = kpi["resultat"]; res_c  = kpi_c.get("resultat",0) if kpi_c else 0
+    ebe_n  = kpi["ebe"];      ebe_c  = kpi_c.get("ebe",0)  if kpi_c else 0
+
+    fp_ca,  pp_ca,  cp_ca  = fleche_pct(annualiser(ca_n,  annee), ca_c)
+    fp_chg, pp_chg, cp_chg = fleche_pct(annualiser(chg_n, annee), chg_c, inv=True)
+    fp_res, pp_res, cp_res = fleche_pct(annualiser(res_n, annee), res_c)
+    fp_ebe, pp_ebe, cp_ebe = fleche_pct(annualiser(ebe_n, annee), ebe_c)
+
+    ca_n1_str  = fmt(ca_c)  if ca_c  else ""
+    chg_n1_str = fmt(chg_c) if chg_c else ""
+    res_n1_str = fmt(res_c) if res_c else ""
+    ebe_n1_str = fmt(ebe_c) if ebe_c else ""
+    taux_ebe_str = fmt_pct(kpi["taux_ebe"])
+
+    svg_illus = f"""<svg width="100%" viewBox="0 0 680 340" role="img" style="display:block">
+  <title>Vue financiere ECCO BAT</title>
+  <desc>CA, Charges et Résultat emboités. EBE à droite.</desc>
+
+  <!-- BOITE 1 : CA -->
+  <rect x="20" y="14" width="440" height="312" rx="16" fill="#E6F1FB" stroke="#378ADD" stroke-width="2.5"/>
+  <text x="38" y="44" font-size="11" font-weight="500" fill="#185FA5" font-family="sans-serif">CHIFFRE D'AFFAIRES</text>
+  <text x="38" y="78" font-size="28" font-weight="500" fill="#042C53" font-family="sans-serif">{fmt(ca_n)}</text>
+  {'<polygon points="' + fp_ca + '" transform="translate(262,56)" fill="' + cp_ca + '"/><text x="279" y="70" font-size="13" font-weight="500" fill="' + cp_ca + '" font-family="sans-serif">' + pp_ca + '</text>' if fp_ca else ''}
+  <text x="38" y="96" font-size="10" fill="#185FA5" font-family="sans-serif" opacity="0.8">N-1 : {ca_n1_str}</text>
+  <rect x="38" y="103" width="55" height="3" rx="2" fill="#378ADD" opacity="0.4"/>
+
+  <!-- BOITE 2 : CHARGES -->
+  <rect x="40" y="116" width="400" height="196" rx="12" fill="#FAEEDA" stroke="#BA7517" stroke-width="2"/>
+  <text x="58" y="140" font-size="10" font-weight="500" fill="#854F0B" font-family="sans-serif">CHARGES TOTALES</text>
+  <text x="58" y="170" font-size="26" font-weight="500" fill="#412402" font-family="sans-serif">{fmt(chg_n)}</text>
+  {'<polygon points="' + fp_chg + '" transform="translate(258,148)" fill="' + cp_chg + '"/><text x="275" y="162" font-size="13" font-weight="500" fill="' + cp_chg + '" font-family="sans-serif">' + pp_chg + '</text>' if fp_chg else ''}
+  <text x="58" y="186" font-size="10" fill="#854F0B" font-family="sans-serif" opacity="0.8">N-1 : {chg_n1_str}</text>
+  <rect x="58" y="192" width="50" height="2.5" rx="1.5" fill="#BA7517" opacity="0.4"/>
+
+  <!-- BOITE 3 : RÉSULTAT NET -->
+  <rect x="58" y="204" width="364" height="96" rx="10" fill="#E1F5EE" stroke="#1D9E75" stroke-width="2"/>
+  <text x="76" y="228" font-size="10" font-weight="500" fill="#0F6E56" font-family="sans-serif">RÉSULTAT NET</text>
+  <text x="76" y="260" font-size="24" font-weight="500" fill="#04342C" font-family="sans-serif">{fmt(res_n)}</text>
+  {'<polygon points="' + fp_res + '" transform="translate(224,238)" fill="' + cp_res + '"/><text x="240" y="252" font-size="13" font-weight="500" fill="' + cp_res + '" font-family="sans-serif">' + pp_res + '</text>' if fp_res else ''}
+  <text x="76" y="290" font-size="10" fill="#0F6E56" font-family="sans-serif" opacity="0.8">N-1 : {res_n1_str}</text>
+
+  <!-- BOITE EBE -->
+  <rect x="480" y="14" width="180" height="312" rx="16" fill="#EEEDFE" stroke="#7F77DD" stroke-width="2.5"/>
+  <text x="570" y="66" text-anchor="middle" font-size="30" font-family="sans-serif">&#x26A1;</text>
+  <text x="570" y="94" text-anchor="middle" font-size="11" font-weight="500" fill="#3C3489" font-family="sans-serif">EBE</text>
+  <text x="570" y="110" text-anchor="middle" font-size="10" fill="#534AB7" font-family="sans-serif">Excédent brut</text>
+  <text x="570" y="124" text-anchor="middle" font-size="10" fill="#534AB7" font-family="sans-serif">d'exploitation</text>
+  <text x="570" y="178" text-anchor="middle" font-size="32" font-weight="500" fill="#26215C" font-family="sans-serif">{fmt(ebe_n)}</text>
+  {'<polygon points="' + fp_ebe + '" transform="translate(548,192)" fill="' + cp_ebe + '"/><text x="563" y="206" font-size="13" font-weight="500" fill="' + cp_ebe + '" font-family="sans-serif">' + pp_ebe + '</text>' if fp_ebe else ''}
+  <text x="570" y="226" text-anchor="middle" font-size="10" fill="#534AB7" font-family="sans-serif" opacity="0.8">N-1 : {ebe_n1_str}</text>
+  <rect x="510" y="252" width="120" height="32" rx="8" fill="#CECBF6"/>
+  <text x="570" y="273" text-anchor="middle" font-size="12" font-weight="500" fill="#26215C" font-family="sans-serif">{taux_ebe_str} du CA</text>
+
+  <!-- Séparateur -->
+  <line x1="464" y1="170" x2="478" y2="170" stroke="#B4B2A9" stroke-width="1.5" stroke-dasharray="3,3"/>
+</svg>"""
+    st.markdown(svg_illus, unsafe_allow_html=True)
+    st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
+
     # ── Jauges ──────────────────────────────────────────
     st.markdown('<div class="section-title">Jauges de santé</div>',unsafe_allow_html=True)
     c1,c2,c3,c4,c5=st.columns(5)
