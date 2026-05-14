@@ -315,34 +315,73 @@ def lire_balance(annee):
 @st.cache_data
 def lire_analytique(annee):
     """
-    Lire UNIQUEMENT les lignes de total de section principale :
-    vals[0]="Total", vals[1] in ["1","2","3"], vals[2] commence par "Total"
-    Ignore tous les sous-totaux (1100, 1110, 2200, 9900 etc.)
+    Lecture correcte de la balance analytique Sage :
+    - Parcourt les comptes individuels par section principale (1xxx, 2xxx, 9xxx)
+    - CA = solde net des comptes 706xxx (crédit - débit, col 15 négatif = ventes)
+    - Charges = solde net des comptes 6xx (débit - crédit, col 15 positif)
+    - Ignore les lignes "Total" pour éviter les doubles comptes
+    - Structure colonnes Sage : col 0=compte, col 10=débit, col 12=crédit, col 15=solde
     """
-    p=DATA/f"balance_analytique_{annee}.xlsx"
+    p = DATA / f"balance_analytique_{annee}.xlsx"
     if not p.exists(): return {}
-    df=pd.read_excel(p,header=None,dtype=str)
-    result={}
-    for _,row in df.iterrows():
-        vals=[str(v).strip() for v in row.values if pd.notna(v) and str(v).strip() not in ["","nan"]]
-        if len(vals)<4: continue
-        if vals[0] != "Total": continue
-        code = vals[1]
-        if code not in ["1","2","3"]: continue
-        label_raw = vals[2]
-        if not label_raw.startswith("Total"): continue
-        # "Total 1 - MAINTENANCE" → "MAINTENANCE"
-        label = label_raw.split(" - ")[-1] if " - " in label_raw else label_raw
-        nums=[]
-        for v in vals[3:]:
-            try: nums.append(float(v.replace(" ","").replace(",",".")))
-            except: pass
-        if len(nums)>=2:
-            charges,produits = nums[0],nums[1]
-            marge = produits - charges
-            result[code]={"label":label,"charges":charges,"ca":produits,
-                          "marge":marge,
-                          "taux_marge":marge/produits*100 if produits>0 else 0}
+    df = pd.read_excel(p, header=None, dtype=str)
+
+    SECTIONS = {
+        "1": "MAINTENANCE",
+        "2": "RENOVATION ENERGETIQUE",
+        "9": "FRAIS GENERAUX",
+    }
+    result = {c: {"label": lbl, "ca": 0.0, "charges": 0.0}
+              for c, lbl in SECTIONS.items()}
+    current_sp = None
+
+    for _, row in df.iterrows():
+        col0  = str(row[0]).strip()  if pd.notna(row[0])  else ""
+        col10 = str(row[10]).strip() if pd.notna(row[10]) else ""
+        col12 = str(row[12]).strip() if pd.notna(row[12]) else ""
+        col15 = str(row[15]).strip() if pd.notna(row[15]) else ""
+
+        # Ligne de section courante (code ≥4 chiffres, sans montants)
+        if col0.isdigit() and len(col0) >= 4 and col10 in ["", "nan"] and col12 in ["", "nan"]:
+            sp = col0[0]
+            if sp in result:
+                current_sp = sp
+            continue
+
+        # Ignorer totaux et en-têtes
+        if col0 in ["Total","Section","Mouvements","Balance","Ecco","©","au","","Totaux","Numéro"]:
+            continue
+
+        # Ligne de compte (6 chiffres) dans une section identifiée
+        if col0.isdigit() and len(col0) == 6 and current_sp:
+            try:
+                debit  = float(col10.replace(" ","").replace(",",".")) if col10 and col10 != "nan" else 0.0
+                credit = float(col12.replace(" ","").replace(",",".")) if col12 and col12 != "nan" else 0.0
+                # Solde = crédit - débit (Sage stocke crédit-débit en col 15)
+                if col15 and col15 != "nan":
+                    solde = float(col15.replace(" ","").replace(",","."))
+                else:
+                    solde = credit - debit
+
+                # CA = comptes 706xxx : solde négatif = ventes nettes
+                if col0.startswith("706"):
+                    ca_net = -solde  # négatif → positif
+                    if ca_net > 0:
+                        result[current_sp]["ca"] += ca_net
+
+                # Charges = comptes 6xx : solde positif = charges nettes
+                elif col0.startswith("6"):
+                    charge = solde  # positif = charge réelle
+                    if charge > 0:
+                        result[current_sp]["charges"] += charge
+            except:
+                pass
+
+    # Calculer marges
+    for s in result.values():
+        s["marge"] = s["ca"] - s["charges"]
+        s["taux_marge"] = s["marge"] / s["ca"] * 100 if s["ca"] > 0 else 0.0
+
     return result
 
 @st.cache_data
