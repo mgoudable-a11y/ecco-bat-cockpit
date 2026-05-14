@@ -325,13 +325,35 @@ def lire_analytique(annee):
     df = pd.read_excel(p, header=None, dtype=str)
 
     # Pré-scan : récupérer les labels des sections principales
+    # Cas 1 : ligne "Total X - LABEL" (ex: Total 1 - MAINTENANCE)
+    # Cas 2 : section sans total principal (ex: 9xxx FG) → détecter via les sous-sections
     labels_sections = {}
+    sous_sections_par_sp = {}  # {sp: premier_label_vu}
+
     for _, row in df.iterrows():
         col0 = str(row[0]).strip() if pd.notna(row[0]) else ""
         col1 = str(row[1]).strip() if pd.notna(row[1]) else ""
+        col2 = str(row[2]).strip() if pd.notna(row[2]) else ""
         col4 = str(row[4]).strip() if pd.notna(row[4]) else ""
+        col10 = str(row[10]).strip() if pd.notna(row[10]) else ""
+        col12 = str(row[12]).strip() if pd.notna(row[12]) else ""
+
+        # Cas 1 : Total principal explicite
         if col0=="Total" and col1.isdigit() and len(col1)==1 and col4.startswith("Total"):
             labels_sections[col1] = col4.split(" - ")[-1] if " - " in col4 else col4
+
+        # Cas 2 : détecter les sections via leurs sous-sections (code ≥4 chiffres sans montants)
+        if col0.isdigit() and len(col0) >= 4 and col10 in ["","nan"] and col12 in ["","nan"]:
+            sp = col0[0]
+            if sp not in sous_sections_par_sp:
+                sous_sections_par_sp[sp] = col2 if col2 and col2 not in ["","nan"] else f"Section {sp}"
+
+    # Ajouter les sections détectées sans total principal
+    LABELS_DEFAUT = {"1":"MAINTENANCE","2":"RENOVATION ENERGETIQUE",
+                     "3":"MACONNERIE","4":"TRAVAUX","9":"FRAIS GENERAUX"}
+    for sp in sous_sections_par_sp:
+        if sp not in labels_sections:
+            labels_sections[sp] = LABELS_DEFAUT.get(sp, f"Section {sp}")
 
     if not labels_sections: return {}
 
