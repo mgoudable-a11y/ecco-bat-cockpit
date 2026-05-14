@@ -314,25 +314,35 @@ def lire_balance(annee):
 
 @st.cache_data
 def lire_analytique(annee):
+    """
+    Lire UNIQUEMENT les lignes de total de section principale :
+    vals[0]="Total", vals[1] in ["1","2","3"], vals[2] commence par "Total"
+    Ignore tous les sous-totaux (1100, 1110, 2200, 9900 etc.)
+    """
     p=DATA/f"balance_analytique_{annee}.xlsx"
     if not p.exists(): return {}
     df=pd.read_excel(p,header=None,dtype=str)
     result={}
     for _,row in df.iterrows():
         vals=[str(v).strip() for v in row.values if pd.notna(v) and str(v).strip() not in ["","nan"]]
-        if len(vals)<4 or vals[0]!="Total": continue
-        code=vals[1]
+        if len(vals)<4: continue
+        if vals[0] != "Total": continue
+        code = vals[1]
         if code not in ["1","2","3"]: continue
-        label=vals[2]
+        label_raw = vals[2]
+        if not label_raw.startswith("Total"): continue
+        # "Total 1 - MAINTENANCE" → "MAINTENANCE"
+        label = label_raw.split(" - ")[-1] if " - " in label_raw else label_raw
         nums=[]
         for v in vals[3:]:
             try: nums.append(float(v.replace(" ","").replace(",",".")))
             except: pass
         if len(nums)>=2:
-            charges,produits=nums[0],nums[1]
+            charges,produits = nums[0],nums[1]
+            marge = produits - charges
             result[code]={"label":label,"charges":charges,"ca":produits,
-                          "marge":produits-charges,
-                          "taux_marge":(produits-charges)/produits*100 if produits>0 else 0}
+                          "marge":marge,
+                          "taux_marge":marge/produits*100 if produits>0 else 0}
     return result
 
 @st.cache_data
