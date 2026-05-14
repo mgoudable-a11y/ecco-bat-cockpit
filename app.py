@@ -216,7 +216,7 @@ def jauge(val, min_v, max_v, titre, unite="%", couleur=None, val_comp=None,
     return fig
 
 def jauge_verticale(pct, label, valeur_str, valeur_keur):
-    """Thermomètre HTML pur via st.markdown — tube + bulbe + % dans le bulbe"""
+    """Thermomètre HTML pur via st.markdown -- tube + bulbe + % dans le bulbe"""
     pct_c = min(pct, 100)
     if pct < 50:    couleur, couleur_dark = "#D85A30", "#B04020"
     elif pct < 70:  couleur, couleur_dark = "#E07030", "#B85020"
@@ -271,7 +271,7 @@ def sante(kpi):
     s=sum([kpi["taux_marge"]>45,kpi["taux_rent"]>5,
            kpi["treso"]>0,kpi["bfr_jours"]<60,kpi["dso"]<45])*2
     if s>=8: return "😄","Excellente santé financière","#f0fff4","#38a169"
-    if s>=6: return "😊","Bonne santé — points à surveiller","#f0fff4","#38a169"
+    if s>=6: return "😊","Bonne santé -- points à surveiller","#f0fff4","#38a169"
     if s>=4: return "😐","Vigilance requise","#fffbeb","#d69e2e"
     return "😟","Points critiques à traiter","#fff5f5","#e53e3e"
 
@@ -668,7 +668,7 @@ def panel_variations(titre, annee, annee_c, prefixe, couleur=C["bleu"]):
         if vc>500:
             p=(vn-vc)/vc*100
             variations.append({"num":num,"intitule":intitule,"vn":vn,"vc":vc,"p":p})
-    st.markdown(f'<div class="panel"><div class="panel-title">📊 {titre} — Top variations N vs N-1</div>',
+    st.markdown(f'<div class="panel"><div class="panel-title">📊 {titre} -- Top variations N vs N-1</div>',
                 unsafe_allow_html=True)
     hausses=sorted(variations,key=lambda x:-x["p"])[:10]
     baisses=sorted(variations,key=lambda x:x["p"])[:10]
@@ -743,7 +743,7 @@ if not kpi:
 ca_ann=annualiser(kpi["ca"],annee)
 
 # ── EN-TÊTE ───────────────────────────────────────────────
-st.markdown("## 🏗️ ECCO BAT — Cockpit Dirigeant")
+st.markdown("## 🏗️ ECCO BAT -- Cockpit Dirigeant")
 emoji,texte,bg,bord=sante(kpi)
 st.markdown(f"""
 <div style="background:{bg};border-left:5px solid {bord};border-radius:12px;
@@ -798,7 +798,7 @@ with tabs[0]:
 
 
     # ── KPI essentiels ──────────────────────────────────
-    st.markdown('<div class="section-title">KPI essentiels — cliquer pour le détail des comptes</div>',
+    st.markdown('<div class="section-title">KPI essentiels -- cliquer pour le détail des comptes</div>',
                 unsafe_allow_html=True)
 
     # Définition des 7 KPI : (key, icone, label, valeur_reelle, valeur_n1, inv, couleur, sub, pref_detail)
@@ -844,7 +844,7 @@ with tabs[0]:
             )
             st.markdown(carte, unsafe_allow_html=True)
 
-            # Bouton Streamlit réel — rendu invisible par CSS, couvre la carte
+            # Bouton Streamlit réel -- rendu invisible par CSS, couvre la carte
             if st.button(f"{lbl}", key=f"btn_{key}", use_container_width=True,
                          help=f"Voir le détail de {lbl}"):
                 st.session_state["panel_ouvert"] = None if actif else key
@@ -875,15 +875,15 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
     panel=st.session_state.get("panel_ouvert")
     pref_map={"ca":"70","marge":"60","treso":"512","crean":"411"}
     titre_map={
-        "ca":"Comptes de ventes (70) — Détail du CA",
-        "marge":"Achats & matières (60) — Détail des charges",
-        "treso":"Comptes bancaires (512) — Détail trésorerie",
-        "crean":"Comptes clients (411) — Détail des créances",
+        "ca":"Comptes de ventes (70) -- Détail du CA",
+        "marge":"Achats & matières (60) -- Détail des charges",
+        "treso":"Comptes bancaires (512) -- Détail trésorerie",
+        "crean":"Comptes clients (411) -- Détail des créances",
     }
     if panel in pref_map:
         if panel == "treso":
             # Trésorerie : afficher solde net par banque avec comparatif N-1
-            st.markdown('<div class="panel"><div class="panel-title">🏦 Trésorerie — Solde par banque N vs N-1</div>', unsafe_allow_html=True)
+            st.markdown('<div class="panel"><div class="panel-title">🏦 Trésorerie -- Solde par banque N vs N-1</div>', unsafe_allow_html=True)
             detail_c = kpi_c["detail"].get("512", {}) if kpi_c else {}
             rows = []
             for num, c in sorted(kpi["detail"].get("512", {}).items()):
@@ -900,7 +900,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
                         "Compte": num,
                         "Banque": c["intitule"][:35],
                         f"Solde Ex.{annee}": fmt(solde, k=False),
-                        f"Solde Ex.{annee_c}": fmt(solde_n1, k=False) if solde_n1 is not None else "—",
+                        f"Solde Ex.{annee_c}": fmt(solde_n1, k=False) if solde_n1 is not None else "--",
                         "Variation": var,
                         "Statut": "✅" if solde > 0 else "🔴 Découvert"
                     }
@@ -925,7 +925,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
                 st.rerun()
         elif panel == "crean":
             # Créances : afficher les comptes + clients qui n'ont pas payé
-            st.markdown('<div class="panel"><div class="panel-title">🧾 Créances clients — Comptes 411 + Impayés</div>', unsafe_allow_html=True)
+            st.markdown('<div class="panel"><div class="panel-title">🧾 Créances clients -- Comptes 411 + Impayés</div>', unsafe_allow_html=True)
             c1, c2 = st.columns([1, 1])
             with c1:
                 st.markdown("**Détail comptes 411**")
@@ -945,10 +945,10 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
                         "Client": c["nom"],
                         "Total dû": fmt(c["total"], k=False),
                         "Non échu": fmt(c["non_echu"], k=False),
-                        "1-30j":  fmt(c["j1_30"],  k=False) if c["j1_30"]  > 0 else "—",
-                        "31-45j": fmt(c["j31_45"], k=False) if c["j31_45"] > 0 else "—",
-                        "46-60j": fmt(c["j46_60"], k=False) if c["j46_60"] > 0 else "—",
-                        "+61j":   fmt(c["plus_61"],k=False) if c["plus_61"] > 0 else "—",
+                        "1-30j":  fmt(c["j1_30"],  k=False) if c["j1_30"]  > 0 else "--",
+                        "31-45j": fmt(c["j31_45"], k=False) if c["j31_45"] > 0 else "--",
+                        "46-60j": fmt(c["j46_60"], k=False) if c["j46_60"] > 0 else "--",
+                        "+61j":   fmt(c["plus_61"],k=False) if c["plus_61"] > 0 else "--",
                     } for c in retards[:20]]
                     # Ligne total séparée en HTML pour la mettre en évidence
                     st.dataframe(pd.DataFrame(rows_r), use_container_width=True, hide_index=True,
@@ -977,7 +977,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
     elif panel in ["res","ebe","bfr"]:
         st.markdown('<div class="panel">', unsafe_allow_html=True)
         if panel == "ebe":
-            st.markdown('<div class="panel-title">⚙️ EBE — Excédent Brut d\'Exploitation — Détail du calcul</div>', unsafe_allow_html=True)
+            st.markdown('<div class="panel-title">⚙️ EBE -- Excédent Brut d\'Exploitation -- Détail du calcul</div>', unsafe_allow_html=True)
             rows = [
                 ("CA (comptes 70)",          kpi["ca"],           "+"),
                 ("− Achats & matières (60)",  kpi["achats"],       "−"),
@@ -988,7 +988,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
             ]
             total = kpi["ebe"]
         elif panel == "res":
-            st.markdown('<div class="panel-title">📈 Résultat net — Détail du calcul</div>', unsafe_allow_html=True)
+            st.markdown('<div class="panel-title">📈 Résultat net -- Détail du calcul</div>', unsafe_allow_html=True)
             rows = [
                 ("EBE",                       kpi["ebe"],          "+"),
                 ("− Dotations amort. (68)",   kpi["dotations"],    "−"),
@@ -997,7 +997,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
             ]
             total = kpi["resultat"]
         else:  # bfr
-            st.markdown('<div class="panel-title">⚖️ BFR — Besoin en Fonds de Roulement — Détail du calcul</div>', unsafe_allow_html=True)
+            st.markdown('<div class="panel-title">⚖️ BFR -- Besoin en Fonds de Roulement -- Détail du calcul</div>', unsafe_allow_html=True)
             rows = [
                 ("Stocks (31/32/33)",         kpi["stocks"],       "+"),
                 ("+ Créances clients (411)",  kpi["creances"],     "+"),
@@ -1032,7 +1032,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
             st.session_state["panel_ouvert"] = None
             st.rerun()
 
-    # ── Objectifs — jauges verticales ───────────────────
+    # ── Objectifs -- jauges verticales ───────────────────
     st.markdown('<div class="section-title">Suivi des objectifs</div>',unsafe_allow_html=True)
     c1,c2,c3,c4=st.columns(4)
     objectifs=[
@@ -1045,7 +1045,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
         with col:
             pct=reel/cible*100 if cible>0 else 0
             if inv:
-                # BFR : mieux si en dessous — inverser la logique
+                # BFR : mieux si en dessous -- inverser la logique
                 pct = max(0, 200 - pct) if pct > 100 else pct
             pct=max(0,min(pct,150))
             valeur_keur = fmt(reel)
@@ -1058,7 +1058,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
         st.markdown('<div class="section-title">🚨 Impayés critiques +61 jours</div>',
                     unsafe_allow_html=True)
         for c in [x for x in agee.get("clients",[]) if x.get("plus_61",0)>500][:5]:
-            st.markdown(f'<div class="alert-r">⚠️ <b>{c["nom"]}</b> — '
+            st.markdown(f'<div class="alert-r">⚠️ <b>{c["nom"]}</b> -- '
                         f'{fmt(c["plus_61"],k=False)} en retard +61j · '
                         f'Total dû : {fmt(c["total"],k=False)}</div>',unsafe_allow_html=True)
 
@@ -1139,7 +1139,7 @@ with tabs[1]:
         dso_label = "✅ Excellent" if dso_val<20 else ("✅ Bon délai" if dso_val<30 else ("⚠️ À surveiller" if dso_val<60 else "🔴 Délai long"))
         st.markdown(f"""
 <div style="background:white;border-radius:12px;padding:16px;border:1px solid #e8ecf0;height:260px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center">
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8896a5;margin-bottom:8px">📅 DSO — Délai moyen de paiement</div>
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8896a5;margin-bottom:8px">📅 DSO -- Délai moyen de paiement</div>
   <div style="font-size:52px;line-height:1">📅</div>
   <div style="font-size:52px;font-weight:900;color:{dso_col};line-height:1.1;margin-top:4px">{dso_val:.0f}j</div>
   <div style="font-size:11px;color:{dso_col};font-weight:600;margin-top:6px">{dso_label}</div>
@@ -1157,8 +1157,8 @@ with tabs[1]:
                     f'<span style="font-size:11px;color:#1a2332">{p["nom"]}</span>'
                     f'<span style="font-size:12px;font-weight:700;color:{couleur}">{p["dso"]:.0f}j</span>'
                     f'</div>')
-        lignes_bons    = "".join([ligne_payeur(b,C["vert"])  for b in bons])    or "<div style='font-size:11px;color:#aaa'>—</div>"
-        lignes_mauvais = "".join([ligne_payeur(m,C["rouge"]) for m in mauvais]) or "<div style='font-size:11px;color:#aaa'>—</div>"
+        lignes_bons    = "".join([ligne_payeur(b,C["vert"])  for b in bons])    or "<div style='font-size:11px;color:#aaa'>--</div>"
+        lignes_mauvais = "".join([ligne_payeur(m,C["rouge"]) for m in mauvais]) or "<div style='font-size:11px;color:#aaa'>--</div>"
         st.markdown(f"""
 <div style="background:white;border-radius:12px;padding:16px;border:1px solid #e8ecf0;height:260px;box-sizing:border-box">
   <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8896a5;margin-bottom:8px">⏱️ DSO par client</div>
@@ -1214,7 +1214,7 @@ with tabs[2]:
         acts_all = list(analytique.keys())
 
         # ── 1. VUE D'ENSEMBLE : CA / Charges / Résultat par section ─
-        st.markdown('<div class="section-title">Vue d'ensemble — CA, Charges et Résultat par section</div>',
+        st.markdown('<div class="section-title">Vue d'ensemble -- CA, Charges et Résultat par section</div>',
                     unsafe_allow_html=True)
         fig_vue = go.Figure()
         sect_colors = {"1": C["bleu"], "2": C["vert"], "9": C["gris"]}
@@ -1236,7 +1236,7 @@ with tabs[2]:
         st.plotly_chart(fig_vue, use_container_width=True, config=CFG)
 
         # ── 2. CARTES SECTIONS cliquables ───────────────────────────
-        st.markdown('<div class="section-title">Détail par section — cliquer pour voir les comptes</div>',
+        st.markdown('<div class="section-title">Détail par section -- cliquer pour voir les comptes</div>',
                     unsafe_allow_html=True)
         if "ana_panel" not in st.session_state:
             st.session_state["ana_panel"] = None
@@ -1275,7 +1275,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
             col_s  = sect_colors.get(panel_a, C["gris"])
             ca_c_a = ana_c.get(panel_a,{}).get("ca",0)
             mg_c_a = ana_c.get(panel_a,{}).get("marge",0)
-            st.markdown(f'<div class="panel"><div class="panel-title">📊 {data_a["label"]} — Détail des comptes</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="panel"><div class="panel-title">📊 {data_a["label"]} -- Détail des comptes</div>', unsafe_allow_html=True)
             c1,c2,c3,c4 = st.columns(4)
             with c1:
                 st.metric("CA", fmt(data_a["ca"]))
@@ -1351,7 +1351,7 @@ with tabs[3]:
                 p=(annualiser(vn,annee)-vc)/vc*100
                 if abs(p)>seuil_charges:
                     cls="alert-r" if p>seuil_charges else "alert-g"
-                    st.markdown(f'<div class="{cls}">{"📈" if p>0 else "📉"} <b>{lbl}</b> — {fmt(vc)} → {fmt(annualiser(vn,annee))} ann. ({"+" if p>0 else ""}{fmt_pct(p)})</div>',unsafe_allow_html=True)
+                    st.markdown(f'<div class="{cls}">{"📈" if p>0 else "📉"} <b>{lbl}</b> -- {fmt(vc)} → {fmt(annualiser(vn,annee))} ann. ({"+" if p>0 else ""}{fmt_pct(p)})</div>',unsafe_allow_html=True)
     if fourn:
         st.markdown('<div class="section-title">Top 10 fournisseurs</div>',unsafe_allow_html=True)
         top10f=sorted(fourn.items(),key=lambda x:-x[1])[:10]; total_f=sum(v for _,v in fourn.items())
