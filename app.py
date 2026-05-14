@@ -315,25 +315,32 @@ def lire_balance(annee):
 @st.cache_data
 def lire_analytique(annee):
     """
-    Lecture correcte de la balance analytique Sage :
-    - Parcourt les comptes individuels par section principale (1xxx, 2xxx, 9xxx)
-    - CA = solde net des comptes 706xxx (crédit - débit, col 15 négatif = ventes)
-    - Charges = solde net des comptes 6xx (débit - crédit, col 15 positif)
-    - Ignore les lignes "Total" pour éviter les doubles comptes
-    - Structure colonnes Sage : col 0=compte, col 10=débit, col 12=crédit, col 15=solde
+    Lecture correcte balance analytique Sage 100.
+    Boucle unique : col0=compte, col2=libellé, col10=débit, col12=crédit, col15=solde
+    CA = solde net des 706xxx (négatif=ventes). Charges = solde net 6xx (positif=charges).
+    Détecte automatiquement toutes les sections principales (1,2,3,4...).
     """
     p = DATA / f"balance_analytique_{annee}.xlsx"
     if not p.exists(): return {}
     df = pd.read_excel(p, header=None, dtype=str)
 
-    SECTIONS = {
-        "1": "MAINTENANCE",
-        "2": "RENOVATION ENERGETIQUE",
-        "9": "FRAIS GENERAUX",
-    }
-    result = {c: {"label": lbl, "ca": 0.0, "charges": 0.0}
-              for c, lbl in SECTIONS.items()}
+    # Pré-scan : récupérer les labels des sections principales
+    labels_sections = {}
+    for _, row in df.iterrows():
+        col0 = str(row[0]).strip() if pd.notna(row[0]) else ""
+        col1 = str(row[1]).strip() if pd.notna(row[1]) else ""
+        col4 = str(row[4]).strip() if pd.notna(row[4]) else ""
+        if col0=="Total" and col1.isdigit() and len(col1)==1 and col4.startswith("Total"):
+            labels_sections[col1] = col4.split(" - ")[-1] if " - " in col4 else col4
+
+    if not labels_sections: return {}
+
+    result = {sp: {"label": lbl, "ca": 0., "charges": 0.,
+                   "detail_ca": {}, "detail_charges": {}}
+              for sp, lbl in labels_sections.items()}
+
     current_sp = None
+    SKIP = {"Total","Section","Mouvements","Balance","Ecco","©","au","","Totaux","Numéro"}
 
     for _, row in df.iterrows():
         col0  = str(row[0]).strip()  if pd.notna(row[0])  else ""
@@ -342,51 +349,42 @@ def lire_analytique(annee):
         col12 = str(row[12]).strip() if pd.notna(row[12]) else ""
         col15 = str(row[15]).strip() if pd.notna(row[15]) else ""
 
-        # Ligne de section courante (code ≥4 chiffres, sans montants)
-        if col0.isdigit() and len(col0) >= 4 and col10 in ["", "nan"] and col12 in ["", "nan"]:
-            sp = col0[0]
-            if sp in result:
-                current_sp = sp
+        if col0 in SKIP: continue
+
+        # Ligne de section (code ≥4 chiffres, sans montants)
+        if col0.isdigit() and len(col0) >= 4 and col10 in ["","nan"] and col12 in ["","nan"]:
+            current_sp = col0[0] if col0[0] in result else None
             continue
 
-        # Ignorer totaux et en-têtes
-        if col0 in ["Total","Section","Mouvements","Balance","Ecco","©","au","","Totaux","Numéro"]:
-            continue
-
-        # Ligne de compte (6 chiffres) dans une section identifiée
+        # Ligne de compte (6 chiffres)
         if col0.isdigit() and len(col0) == 6 and current_sp:
             try:
-                debit  = float(col10.replace(" ","").replace(",",".")) if col10 and col10 != "nan" else 0.0
-                credit = float(col12.replace(" ","").replace(",",".")) if col12 and col12 != "nan" else 0.0
-                # Solde = crédit - débit (Sage stocke crédit-débit en col 15)
-                if col15 and col15 != "nan":
-                    solde = float(col15.replace(" ","").replace(",","."))
-                else:
-                    solde = credit - debit
+                d = float(col10.replace(" ","").replace(",",".")) if col10 and col10!="nan" else 0.
+                c = float(col12.replace(" ","").replace(",",".")) if col12 and col12!="nan" else 0.
+                s = float(col15.replace(" ","").replace(",",".")) if col15 and col15!="nan" else c-d
 
-                # CA = comptes 706xxx : solde négatif = ventes nettes
+                lbl = col2 if col2 and col2 not in ["","nan"] else col0
+
                 if col0.startswith("706"):
-                    ca_net = -solde  # négatif → positif
+                    ca_net = -s
                     if ca_net > 0:
                         result[current_sp]["ca"] += ca_net
-
-                # Charges = comptes 6xx : solde positif = charges nettes
+                        result[current_sp]["detail_ca"][lbl] =                             result[current_sp]["detail_ca"].get(lbl, 0) + ca_net
                 elif col0.startswith("6"):
-                    charge = solde  # positif = charge réelle
-                    if charge > 0:
-                        result[current_sp]["charges"] += charge
+                    if s > 0:
+                        result[current_sp]["charges"] += s
+                        result[current_sp]["detail_charges"][lbl] =                             result[current_sp]["detail_charges"].get(lbl, 0) + s
             except:
                 pass
 
-    # Calculer marges
     for s in result.values():
-        s["marge"] = s["ca"] - s["charges"]
-        s["taux_marge"] = s["marge"] / s["ca"] * 100 if s["ca"] > 0 else 0.0
-        # Top 10 comptes CA et Charges
-        s["top_ca"]      = sorted(s.get("detail_ca", {}).items(),      key=lambda x:-x[1])[:10]
-        s["top_charges"]  = sorted(s.get("detail_charges", {}).items(), key=lambda x:-x[1])[:10]
+        s["marge"]      = s["ca"] - s["charges"]
+        s["taux_marge"] = s["marge"] / s["ca"] * 100 if s["ca"] > 0 else 0.
+        s["top_ca"]      = sorted(s["detail_ca"].items(),      key=lambda x: -x[1])[:10]
+        s["top_charges"] = sorted(s["detail_charges"].items(), key=lambda x: -x[1])[:10]
 
     return result
+
 
 @st.cache_data
 def lire_balance_agee(annee):
