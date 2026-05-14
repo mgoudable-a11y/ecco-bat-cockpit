@@ -554,6 +554,34 @@ def lire_clients(annee):
     return clients_ht, mensuel_ht
 
 @st.cache_data
+def lire_charges_mensuelles(annee):
+    """Charges mensuelles depuis grand livre 401 (achats fournisseurs).
+    Agrège débits et crédits par mois pour obtenir les achats nets."""
+    p = DATA / f"grand_livre_fournisseurs_{annee}.xlsx"
+    if not p.exists(): return {}
+    df = pd.read_excel(p, header=None, dtype=str)
+    from collections import defaultdict
+    par_mois = defaultdict(lambda: {"d":0.,"c":0.})
+    for _, row in df.iterrows():
+        date_raw = str(row[0]).strip() if pd.notna(row[0]) else ""
+        libelle  = str(row[5]).strip() if pd.notna(row[5]) else ""
+        credit_r = str(row[15]).strip() if pd.notna(row[15]) else ""
+        debit_r  = str(row[12]).strip() if pd.notna(row[12]) else ""
+        if not any(yr in date_raw for yr in ["2022","2023","2024","2025"]): continue
+        if not libelle or libelle == "nan": continue
+        if any(x in libelle.upper() for x in ["VIR SEPA","PRLV","EFFET","PAIEMENT"]): continue
+        try:
+            c = float(credit_r.replace(" ","").replace(",",".")) if credit_r and credit_r!="nan" else 0.
+            d = float(debit_r.replace(" ","").replace(",","."))  if debit_r  and debit_r!="nan"  else 0.
+            mois_key = date_raw[:7]
+            par_mois[mois_key]["c"] += c
+            par_mois[mois_key]["d"] += d
+        except: pass
+    # Achats nets = crédit - remboursements (débit)
+    return {k: max(v["c"] - v["d"], 0) for k,v in par_mois.items() if v["c"] > 0}
+
+
+@st.cache_data
 def lire_fournisseurs(annee):
     p=DATA/f"grand_livre_fournisseurs_{annee}.xlsx"
     if not p.exists(): return {}
@@ -753,6 +781,8 @@ clients_d,mensuel  = lire_clients(annee)
 clients_c,_        = lire_clients(annee_c) if annee_c in EXERCICES else ({},{})
 fourn              = lire_fournisseurs(annee)
 fourn_c            = lire_fournisseurs(annee_c) if annee_c in EXERCICES else {}
+charges_mens       = lire_charges_mensuelles(annee)
+charges_mens_c     = lire_charges_mensuelles(annee_c) if annee_c in EXERCICES else {}
 kpi                = calculer_kpi(comptes,totaux) if comptes else {}
 kpi_c              = calculer_kpi(comptes_c,totaux_c) if comptes_c else {}
 
@@ -1470,6 +1500,30 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] button {
 
 # ══ ONGLET 4 : CHARGES & FOURNISSEURS ═════════════════════
 with tabs[3]:
+    # ── Graphique charges mensuelles ────────────────────
+    if charges_mens:
+        st.markdown('<div class="section-title">Achats fournisseurs mensuels</div>',unsafe_allow_html=True)
+        ordre_mois=[f"{y}-{m:02d}" for y in range(2022,2026) for m in range(1,13)]
+        mois_ch=[m for m in ordre_mois if m in charges_mens]
+        vals_ch=[charges_mens[m] for m in mois_ch]
+        moy_ch=sum(vals_ch)/len(vals_ch) if vals_ch else 0
+        labels_fr={"01":"Jan","02":"Fév","03":"Mar","04":"Avr","05":"Mai","06":"Jun",
+                   "07":"Jul","08":"Aoû","09":"Sep","10":"Oct","11":"Nov","12":"Déc"}
+        x_ch=[labels_fr.get(m.split("-")[1],m)+"-"+m.split("-")[0][-2:] for m in mois_ch]
+        fig_ch=go.Figure()
+        fig_ch.add_trace(go.Bar(x=x_ch,y=vals_ch,name="Achats fournisseurs",
+            marker_color=[C["rouge"] if v>moy_ch*1.5 else C["orange"] if v>moy_ch else C["bleu"] for v in vals_ch],
+            text=[fmt(v,k=False) for v in vals_ch],textposition="outside",textfont=dict(size=11,color="#1a2332")))
+        fig_ch.add_trace(go.Scatter(x=x_ch,y=[moy_ch]*len(mois_ch),mode="lines",
+            line=dict(color=C["rouge"],dash="dash",width=1.5),name=f"Moy. {fmt(moy_ch,k=False)}"))
+        fig_ch.update_layout(height=320,margin=dict(t=40,b=0,l=0,r=0),showlegend=True,
+            legend=dict(orientation="h",y=1.1),
+            plot_bgcolor="rgba(0,0,0,0)",paper_bgcolor="rgba(0,0,0,0)",
+            yaxis=dict(title="€",gridcolor="#f0f0f0"),
+            xaxis=dict(tickfont=dict(size=12)))
+        st.plotly_chart(fig_ch,use_container_width=True,config=CFG)
+        st.caption("Source : grand livre fournisseurs 401 — achats nets (factures reçues hors règlements).")
+
     postes=[
         ("Achats & matières (60)",kpi["achats"],kpi_c.get("achats",0) if kpi_c else 0,C["bleu"],"60"),
         ("Personnel (64)",kpi["charges_pers"],kpi_c.get("charges_pers",0) if kpi_c else 0,C["vert"],"64"),
